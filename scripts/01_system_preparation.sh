@@ -25,6 +25,7 @@ ufw --force enable
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow ssh
+ufw allow 2223/tcp comment 'WSL SSH Custom Port'
 ufw allow http
 ufw allow https
 ufw reload
