@@ -10,3 +10,7 @@ shared/
 supabase/
 dify/
 volumes/
+
+# RAGFlow data and secrets
+ragflow/data/
+ragflow/docker/.env

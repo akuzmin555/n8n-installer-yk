@@ -202,6 +202,20 @@ Requires Clickhouse, Minio (S3 storage), Postgres, Redis. Worker + Web container
 ### Dify
 AI application platform with comprehensive LLMOps capabilities. Multi-container setup.
 
+### RAGFlow
+RAG (Retrieval-Augmented Generation) engine with deep document understanding. Configured via `docker-compose.override.yml`:
+- **ragflow-mysql** - MySQL 8.0 database (port 3307)
+- **ragflow-elasticsearch** - Document search engine (port 9201)
+- **ragflow-minio** - S3-compatible object storage (ports 9000-9001)
+- **ragflow-redis** - Caching layer (port 6380)
+- **ragflow-server** - Main RAGFlow application with GPU support (port 9380)
+- GPU support via NVIDIA Container Toolkit (configurable via `RAGFLOW_GPU_COUNT`)
+- Nginx configuration mounted from `ragflow/nginx/ragflow.conf` for frontend/API routing
+- Data directories: `ragflow/data/{mysql,elasticsearch,minio,redis,ragflow}`
+- Environment: `ragflow/docker/.env` (excluded from git)
+
+**Important**: RAGFlow uses nginx internally to serve frontend (`/ragflow/web/dist`) and proxy API requests to Flask (port 9380). The nginx configuration must be mounted as a volume to persist across container restarts.
+
 ### Python Runner
 Internal-only service (no Caddy proxy) for running custom Python from `./python-runner/`. Entry point: `main.py`, dependencies: `requirements.txt`.
 

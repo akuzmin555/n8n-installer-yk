@@ -168,6 +168,78 @@ def prepare_dify_env():
     with open(env_path, 'w') as f:
         f.write("\n".join(lines) + "\n")
 
+def prepare_ragflow_env():
+    """Add RAGFlow variables to main .env file if not already present."""
+    if not os.path.exists("docker-compose.override.yml"):
+        print("RAGFlow override file not found, skipping env preparation.")
+        return
+
+    ragflow_env_path = os.path.join("ragflow", "docker", ".env")
+    if not os.path.exists(ragflow_env_path):
+        print(f"RAGFlow env file not found at {ragflow_env_path}, skipping.")
+        return
+
+    main_env_path = ".env"
+    if not os.path.exists(main_env_path):
+        print(f"Main .env file not found at {main_env_path}, skipping.")
+        return
+
+    # Check if RAGFlow variables already exist in main .env
+    with open(main_env_path, 'r') as f:
+        main_env_content = f.read()
+
+    if "# RAGFlow Configuration" in main_env_content:
+        print("RAGFlow variables already exist in .env, skipping.")
+        return
+
+    print("Adding RAGFlow variables to main .env file...")
+
+    # Read RAGFlow variables
+    with open(ragflow_env_path, 'r') as f:
+        ragflow_env_content = f.read()
+
+    # Append to main .env
+    with open(main_env_path, 'a') as f:
+        f.write("\n")
+        f.write("# ============================================\n")
+        f.write("# RAGFlow Configuration\n")
+        f.write("# ============================================\n")
+        # Only add non-comment, non-empty lines
+        for line in ragflow_env_content.splitlines():
+            if line.strip() and not line.strip().startswith('#'):
+                f.write(line + "\n")
+
+    print("RAGFlow variables added successfully to .env")
+
+def prepare_ragflow_dirs():
+    """Create and set proper permissions for RAGFlow data directories."""
+    print("Preparing RAGFlow data directories...")
+
+    # Check if RAGFlow is being used (docker-compose.override.yml exists)
+    if not os.path.exists("docker-compose.override.yml"):
+        print("RAGFlow override file not found, skipping directory preparation.")
+        return
+
+    # Create base directories
+    ragflow_dirs = {
+        "ragflow/data/elasticsearch": 1000,  # Elasticsearch UID
+        "ragflow/data/mysql": 999,           # MySQL UID
+        "ragflow/data/minio": 1000,          # MinIO UID
+        "ragflow/data/redis": 999,           # Redis UID
+        "ragflow/data/ragflow": 1000,        # RAGFlow server UID
+    }
+
+    for dir_path, uid in ragflow_dirs.items():
+        os.makedirs(dir_path, exist_ok=True)
+        try:
+            # Set ownership to the UID that the container process runs as
+            os.chown(dir_path, uid, uid)
+            print(f"  ✓ Created {dir_path} with UID {uid}")
+        except PermissionError:
+            print(f"  ⚠ Warning: Could not set ownership for {dir_path}, may need manual fix")
+        except Exception as e:
+            print(f"  ⚠ Warning: Error setting up {dir_path}: {e}")
+
 def stop_existing_containers():
     """Stop and remove existing containers for our unified project ('localai')."""
     print("Stopping and removing existing containers for the unified project 'localai'...")
@@ -181,6 +253,10 @@ def stop_existing_containers():
         cmd.extend(["--profile", profile])
     
     cmd.extend(["-f", "docker-compose.yml"])
+
+    # Check if the override file exists. If so, include it.
+    if os.path.exists("docker-compose.override.yml"):
+        cmd.extend(["-f", "docker-compose.override.yml"])
 
     # Check if the Supabase Docker Compose file exists. If so, include it in the 'down' command.
     supabase_compose_path = os.path.join("supabase", "docker", "docker-compose.yml")
@@ -221,12 +297,24 @@ def start_local_ai():
 
     # Explicitly build services and pull newer base images first.
     print("Checking for newer base images and building services...")
-    build_cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml", "build", "--pull"]
+    build_cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml"]
+
+    # Include override file if it exists
+    if os.path.exists("docker-compose.override.yml"):
+        build_cmd.extend(["-f", "docker-compose.override.yml"])
+
+    build_cmd.extend(["build", "--pull"])
     run_command(build_cmd)
 
     # Now, start the services using the newly built images. No --build needed as we just built.
     print("Starting containers...")
-    up_cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml", "up", "-d"]
+    up_cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml"]
+
+    # Include override file if it exists
+    if os.path.exists("docker-compose.override.yml"):
+        up_cmd.extend(["-f", "docker-compose.override.yml"])
+
+    up_cmd.extend(["up", "-d"])
     run_command(up_cmd)
 
 def generate_searxng_secret_key():
@@ -375,15 +463,19 @@ def main():
     if is_supabase_enabled():
         clone_supabase_repo()
         prepare_supabase_env()
-    
+
     if is_dify_enabled():
         clone_dify_repo()
         prepare_dify_env()
-    
+
+    # Prepare RAGFlow environment and directories
+    prepare_ragflow_env()
+    prepare_ragflow_dirs()
+
     # Generate SearXNG secret key and check docker-compose.yml
     generate_searxng_secret_key()
     check_and_fix_docker_compose_for_searxng()
-    
+
     stop_existing_containers()
     
     # Start Supabase first

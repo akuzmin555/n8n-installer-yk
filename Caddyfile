@@ -131,6 +131,7 @@ https://{$NEO4J_HOSTNAME}:7687 {
 }
 
 import /etc/caddy/addons/*.conf
+import /etc/caddy/custom/*.caddy
 
 # # SearXNG
 {$SEARXNG_HOSTNAME} {
