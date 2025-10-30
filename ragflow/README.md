@@ -109,10 +109,13 @@ docker logs -f ragflow-server
 ### Текущая конфигурация
 
 - **GPU Count**: 1 (RTX 4090)
-- **Memory Limit**: 8GB
-- **Embedding Batch Size**: 16
+- **Memory Limit**: 20GB (оптимизировано для RTX 4090 24GB VRAM)
+- **Document Bulk Size**: 10
+- **Embedding Batch Size**: 40
 
-### Масштабирование GPU
+### Оптимизация GPU
+
+Текущая конфигурация оптимизирована для RTX 4090 с 24GB VRAM и обеспечивает баланс между производительностью и стабильностью.
 
 При добавлении второй RTX 4090:
 
@@ -122,13 +125,13 @@ docker logs -f ragflow-server
 nano ragflow/docker/.env
 
 # Изменить:
-RAGFLOW_GPU_COUNT=2         # или "all"
-EMBEDDING_BATCH_SIZE=32     # для лучшей утилизации
+RAGFLOW_GPU_COUNT=2         # или "all" для автоопределения
+EMBEDDING_BATCH_SIZE=32     # можно увеличить для лучшей утилизации
 
-# Перезапустить
-docker compose -p localai restart ragflow-server
+# Перезапустить через start_services.py
+sudo python3 start_services.py
 
-# Проверить
+# Проверить обе GPU
 docker exec ragflow-server nvidia-smi
 ```
 
@@ -307,7 +310,8 @@ sudo python3 start_services.py
 **Решение ручное:**
 ```bash
 # Войти в MySQL и создать базу
-docker exec ragflow-mysql mysql -uroot -p${RAGFLOW_MYSQL_PASSWORD} -e "
+# (замените YOUR_PASSWORD на значение MYSQL_ROOT_PASSWORD из ragflow/docker/.env)
+docker exec ragflow-mysql mysql -uroot -pYOUR_PASSWORD -e "
 CREATE DATABASE IF NOT EXISTS rag_flow;
 GRANT ALL PRIVILEGES ON rag_flow.* TO 'ragflow_user'@'%';
 GRANT ALL PRIVILEGES ON ragflow_db.* TO 'ragflow_user'@'%';
@@ -350,19 +354,28 @@ sudo systemctl restart docker
 docker compose -p localai up -d ragflow-server
 ```
 
-### Переменные окружения не подхватываются
+### Архитектура переменных окружения
 
-**Проблема:** Docker Compose предупреждает, что переменные `RAGFLOW_*` не установлены.
+**Важно:** RAGFlow использует чистую архитектуру `env_file` без подстановки `${VAR}` в docker-compose.yml.
 
-**Причина:** `env_file` в docker-compose работает только внутри контейнеров, но не для подстановки в сам docker-compose.yml.
+**Принцип работы:**
+- Все переменные RAGFlow хранятся только в `ragflow/docker/.env`
+- Docker Compose загружает их в контейнеры через директиву `env_file`
+- В `docker-compose.override.yml` используются только hardcoded значения для service discovery (MYSQL_HOST, REDIS_HOST, etc.)
+- Нет дублирования переменных между `ragflow/docker/.env` и корневым `.env`
 
-**Решение автоматическое (через start_services.py):**
-Скрипт автоматически копирует переменные из `ragflow/docker/.env` в основной `.env` через функцию `prepare_ragflow_env()`.
+**Преимущества:**
+- Единственный источник истины: `ragflow/docker/.env`
+- Нет конфликтов и рассинхронизации между файлами
+- Простое управление конфигурацией
 
-**Решение ручное:**
+**Изменение конфигурации:**
 ```bash
-# Запустить скрипт добавления переменных
-sudo bash add_ragflow_vars.sh
+# Отредактировать переменные
+nano ragflow/docker/.env
+
+# Применить изменения через полный перезапуск
+sudo python3 start_services.py
 ```
 
 ## Документация

@@ -302,10 +302,11 @@ nano ragflow/docker/.env
 
 # 2. Изменить значения:
 RAGFLOW_GPU_COUNT=2          # или "all" для автоматического определения
-EMBEDDING_BATCH_SIZE=32      # увеличить для лучшей утилизации
+EMBEDDING_BATCH_SIZE=32      # можно уменьшить для лучшего распределения нагрузки
+DOC_BULK_SIZE=15             # можно увеличить для лучшей утилизации
 
-# 3. Перезапустить сервис
-docker compose -p localai restart ragflow-server
+# 3. Перезапустить через start_services.py для корректной загрузки конфигурации
+sudo python3 start_services.py
 
 # 4. Проверить что обе GPU видны
 docker exec ragflow-server nvidia-smi
@@ -401,36 +402,45 @@ sudo python3 start_services.py
 **Решение ручное:**
 ```bash
 # Войти в MySQL и создать базу
-docker exec ragflow-mysql mysql -uroot -p${RAGFLOW_MYSQL_PASSWORD} -e "
+# (замените YOUR_PASSWORD на значение MYSQL_ROOT_PASSWORD из ragflow/docker/.env)
+docker exec ragflow-mysql mysql -uroot -pYOUR_PASSWORD -e "
 CREATE DATABASE IF NOT EXISTS rag_flow;
 GRANT ALL PRIVILEGES ON rag_flow.* TO 'ragflow_user'@'%';
 GRANT ALL PRIVILEGES ON ragflow_db.* TO 'ragflow_user'@'%';
 FLUSH PRIVILEGES;
 "
 
-# Перезапустить RAGFlow
-docker compose -p localai restart ragflow-server
-```
-
-### Переменные окружения не подхватываются
-
-**Проблема:** Docker Compose предупреждает, что переменные `RAGFLOW_*` не установлены.
-
-**Причина:** `env_file` в docker-compose работает только внутри контейнеров, но не для подстановки в сам docker-compose.yml.
-
-**Решение автоматическое (через start_services.py - рекомендуется):**
-Скрипт автоматически копирует переменные из `ragflow/docker/.env` в основной `.env` через функцию `prepare_ragflow_env()`:
-
-```bash
+# Перезапустить RAGFlow через полный перезапуск
 sudo python3 start_services.py
 ```
 
-**Решение ручное:**
-```bash
-# Запустить скрипт добавления переменных (если есть)
-sudo bash add_ragflow_vars.sh
+### Архитектура переменных окружения
 
-# Или добавить переменные вручную из ragflow/docker/.env в основной .env
+**Важно:** RAGFlow использует чистую архитектуру `env_file` без подстановки `${VAR}`.
+
+**Принцип работы:**
+- Все переменные RAGFlow хранятся **только** в `ragflow/docker/.env`
+- Docker Compose загружает их в контейнеры через директиву `env_file`
+- В `docker-compose.override.yml` **НЕ используются** подстановки `${VARIABLE}`
+- Только hardcoded значения для service discovery: `MYSQL_HOST=ragflow-mysql`, `REDIS_HOST=ragflow-redis`
+- **Нет дублирования** между `ragflow/docker/.env` и корневым `.env`
+
+**Преимущества:**
+- ✅ Единственный источник истины: `ragflow/docker/.env`
+- ✅ Нет конфликтов между файлами
+- ✅ Простое управление конфигурацией
+- ✅ Переменные загружаются напрямую в контейнеры
+
+**Изменение конфигурации:**
+```bash
+# 1. Отредактировать переменные
+nano ragflow/docker/.env
+
+# 2. Применить через полный перезапуск (НЕ через restart!)
+sudo python3 start_services.py
+
+# restart НЕ перечитывает .env файлы!
+# up -d --force-recreate пересоздает контейнеры с новыми переменными
 ```
 
 ### RAGFlow не стартует

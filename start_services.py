@@ -168,49 +168,6 @@ def prepare_dify_env():
     with open(env_path, 'w') as f:
         f.write("\n".join(lines) + "\n")
 
-def prepare_ragflow_env():
-    """Add RAGFlow variables to main .env file if not already present."""
-    if not os.path.exists("docker-compose.override.yml"):
-        print("RAGFlow override file not found, skipping env preparation.")
-        return
-
-    ragflow_env_path = os.path.join("ragflow", "docker", ".env")
-    if not os.path.exists(ragflow_env_path):
-        print(f"RAGFlow env file not found at {ragflow_env_path}, skipping.")
-        return
-
-    main_env_path = ".env"
-    if not os.path.exists(main_env_path):
-        print(f"Main .env file not found at {main_env_path}, skipping.")
-        return
-
-    # Check if RAGFlow variables already exist in main .env
-    with open(main_env_path, 'r') as f:
-        main_env_content = f.read()
-
-    if "# RAGFlow Configuration" in main_env_content:
-        print("RAGFlow variables already exist in .env, skipping.")
-        return
-
-    print("Adding RAGFlow variables to main .env file...")
-
-    # Read RAGFlow variables
-    with open(ragflow_env_path, 'r') as f:
-        ragflow_env_content = f.read()
-
-    # Append to main .env
-    with open(main_env_path, 'a') as f:
-        f.write("\n")
-        f.write("# ============================================\n")
-        f.write("# RAGFlow Configuration\n")
-        f.write("# ============================================\n")
-        # Only add non-comment, non-empty lines
-        for line in ragflow_env_content.splitlines():
-            if line.strip() and not line.strip().startswith('#'):
-                f.write(line + "\n")
-
-    print("RAGFlow variables added successfully to .env")
-
 def prepare_ragflow_dirs():
     """Create and set proper permissions for RAGFlow data directories."""
     print("Preparing RAGFlow data directories...")
@@ -468,8 +425,7 @@ def main():
         clone_dify_repo()
         prepare_dify_env()
 
-    # Prepare RAGFlow environment and directories
-    prepare_ragflow_env()
+    # Prepare RAGFlow directories (all config now in ragflow/docker/.env)
     prepare_ragflow_dirs()
 
     # Generate SearXNG secret key and check docker-compose.yml

@@ -126,9 +126,15 @@ import custom/*.caddy
 
 ### 4. GPU-конфигурация
 
-RAGFlow v0.21.1 (полная версия) включает встроенные embedding модели и поддерживает GPU-ускорение:
+RAGFlow v0.21.1 (полная версия) включает встроенные embedding модели и поддерживает GPU-ускорение.
 
-**Текущая конфигурация (1 GPU):**
+**Текущая конфигурация (1x RTX 4090 24GB VRAM):**
+
+GPU оптимизирован для максимальной производительности при сохранении стабильности:
+
+- **Memory Limit**: 20GB (из 24GB доступных)
+- **Document Bulk Size**: 10
+- **Embedding Batch Size**: 40
 
 ```yaml
 services:
@@ -145,8 +151,9 @@ services:
 **После добавления второй RTX 4090:**
 
 1. Изменить `RAGFLOW_GPU_COUNT=2` в `ragflow/docker/.env`
-2. Опционально увеличить `EMBEDDING_BATCH_SIZE=32` для лучшей утилизации
-3. Обновить конфигурацию:
+2. Можно уменьшить `EMBEDDING_BATCH_SIZE=32` для лучшего распределения нагрузки
+3. Можно увеличить `DOC_BULK_SIZE=15` для лучшей утилизации
+4. Обновить конфигурацию:
    ```yaml
    deploy:
      resources:
@@ -156,77 +163,89 @@ services:
              count: 2  # или "all" для автоматического использования всех GPU
              capabilities: [gpu]
    ```
-4. Перезапустить: `docker compose restart ragflow-server`
-5. Проверить: `docker exec ragflow-server nvidia-smi`
+5. Перезапустить: `sudo python3 start_services.py` (НЕ через `restart`!)
+6. Проверить: `docker exec ragflow-server nvidia-smi`
 
 ### 5. Переменные окружения
 
-**ВАЖНО:** Все RAGFlow переменные создаются в **отдельном файле** `ragflow/docker/.env`, который:
+**ВАЖНО:** RAGFlow использует чистую архитектуру `env_file` - все переменные создаются в **отдельном файле** `ragflow/docker/.env`, который:
 
 - НЕ затрагивается скриптом `update.sh`
-- Автоматически подхватывается через `env_file` в docker-compose.override.yml
+- Автоматически загружается в контейнеры через `env_file` в docker-compose.override.yml
+- НЕ дублируется в корневом `.env`
 - Изолирован от основной конфигурации n8n-installer
+
+**Архитектурный принцип:**
+- ❌ Не используем подстановку `${VAR}` в docker-compose.override.yml
+- ✅ Все переменные загружаются напрямую через `env_file`
+- ✅ В `environment` секциях только hardcoded значения для service discovery
+- ✅ Единственный источник истины: `ragflow/docker/.env`
 
 **Содержимое файла `ragflow/docker/.env`:**
 
 ```bash
 # RAGFlow Configuration
-RAGFLOW_IMAGE=infiniflow/ragflow:v0.21.1  # Полная версия с embedding моделями (~9GB)
-DOMAIN_NAME=ittelo.biz  # Используется для поддомена ragflow.ittelo.biz
+RAGFLOW_IMAGE=infiniflow/ragflow:v0.21.1
+DOMAIN_NAME=ittelo.biz
 SVR_HTTP_PORT=9380
 
-# GPU Configuration
+# GPU Configuration - OPTIMIZED for RTX 4090 24GB VRAM
 DEVICE=gpu
-# Количество GPU: 1 (сейчас), 2 (после добавления второй RTX 4090) или "all"
 RAGFLOW_GPU_COUNT=1
 
-# RAGFlow MySQL
-RAGFLOW_MYSQL_PASSWORD=STRONG_SECURE_PASSWORD_HERE_CHANGE_ME
-RAGFLOW_MYSQL_PORT=3307  # Другой порт, чтобы не конфликтовать с PostgreSQL
-RAGFLOW_MYSQL_USER=ragflow_user
-RAGFLOW_MYSQL_DATABASE=ragflow_db
+# MySQL Configuration (используются стандартные имена переменных MySQL)
+MYSQL_ROOT_PASSWORD=STRONG_SECURE_PASSWORD_HERE
+MYSQL_PASSWORD=STRONG_SECURE_PASSWORD_HERE
+MYSQL_USER=ragflow_user
+MYSQL_DATABASE=ragflow_db
 
-# RAGFlow Elasticsearch
-RAGFLOW_ELASTIC_PASSWORD=STRONG_SECURE_PASSWORD_HERE_CHANGE_ME
-RAGFLOW_ES_PORT=9201  # Другой порт для избежания конфликтов
-RAGFLOW_STACK_VERSION=8.11.3
+# Elasticsearch Configuration
+ELASTIC_PASSWORD=STRONG_SECURE_PASSWORD_HERE
 
-# RAGFlow MinIO (S3-совместимое хранилище)
-RAGFLOW_MINIO_USER=ragflow_minio_admin
-RAGFLOW_MINIO_PASSWORD=STRONG_SECURE_PASSWORD_HERE_CHANGE_ME
-RAGFLOW_MINIO_PORT=9000  # Стандартный порт MinIO API
-RAGFLOW_MINIO_CONSOLE_PORT=9001  # Стандартный порт MinIO Console
+# MinIO Configuration
+MINIO_ROOT_USER=ragflow_minio_admin
+MINIO_ROOT_PASSWORD=STRONG_SECURE_PASSWORD_HERE
+MINIO_USER=ragflow_minio_admin
+MINIO_PASSWORD=STRONG_SECURE_PASSWORD_HERE
 
-# RAGFlow Redis
-RAGFLOW_REDIS_PORT=6380  # Другой порт для избежания конфликтов
-RAGFLOW_REDIS_PASSWORD=STRONG_SECURE_PASSWORD_HERE_CHANGE_ME
+# Redis Configuration
+REDIS_PASSWORD=STRONG_SECURE_PASSWORD_HERE
 
-# Resource Limits
-RAGFLOW_MEM_LIMIT=8073741824  # 8GB RAM для RAGFlow сервера
+# Resource Limits - OPTIMIZED for RTX 4090 24GB VRAM
+RAGFLOW_MEM_LIMIT=21474836480    # 20GB
 
-# Batch Sizes (можно увеличить при добавлении второй GPU)
-DOC_BULK_SIZE=4
-EMBEDDING_BATCH_SIZE=16  # Увеличить до 32 при установке второй GPU
+# Batch Sizes - OPTIMIZED for RTX 4090 24GB VRAM
+DOC_BULK_SIZE=10                 # Document processing batch size
+EMBEDDING_BATCH_SIZE=40          # Embedding generation batch size
 
 # Timezone
-TIMEZONE=Europe/Amsterdam  # Или твоя временная зона
+TZ=Europe/Moscow
 
-# Hugging Face Mirror (опционально, если есть проблемы с доступом)
+# Hugging Face Mirror (опционально)
 # HF_ENDPOINT=https://hf-mirror.com
 
 # User Registration (опционально)
-# REGISTER_ENABLED=1  # 1 = включена, 0 = отключена
+# REGISTER_ENABLED=1
 ```
 
 ### 6. Пример docker-compose.override.yml
 
+**ВАЖНО:** Используется чистая архитектура `env_file` без подстановки `${VAR}`.
+
 Создаём файл `docker-compose.override.yml` в корне n8n-installer:
 
 ```yaml
-version: '3.8'
+# RAGFlow Integration Override
+# This file extends the base docker-compose.yml with RAGFlow services
+# It will NOT be affected by the update.sh script
 
 services:
-  # RAGFlow MySQL
+  # Extend Caddy to mount custom configurations
+  caddy:
+    volumes:
+      - ./caddy/custom:/etc/caddy/custom:ro
+
+  # RAGFlow MySQL Database
   ragflow-mysql:
     container_name: ragflow-mysql
     image: mysql:8.0
@@ -234,34 +253,30 @@ services:
     restart: unless-stopped
     env_file:
       - ./ragflow/docker/.env
-    environment:
-      - MYSQL_ROOT_PASSWORD=${RAGFLOW_MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${RAGFLOW_MYSQL_DATABASE}
-      - MYSQL_USER=${RAGFLOW_MYSQL_USER}
-      - MYSQL_PASSWORD=${RAGFLOW_MYSQL_PASSWORD}
     volumes:
       - ./ragflow/data/mysql:/var/lib/mysql
     ports:
-      - "${RAGFLOW_MYSQL_PORT:-3307}:3306"
+      - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # RAGFlow Elasticsearch
   ragflow-elasticsearch:
     container_name: ragflow-elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:${RAGFLOW_STACK_VERSION:-8.11.3}
+    image: elasticsearch:8.11.3
     restart: unless-stopped
     env_file:
       - ./ragflow/docker/.env
     environment:
       - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=${RAGFLOW_ELASTIC_PASSWORD}
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
       - discovery.type=single-node
+      - xpack.security.http.ssl.enabled=false
     ulimits:
       memlock:
         soft: -1
@@ -272,34 +287,33 @@ services:
     volumes:
       - ./ragflow/data/elasticsearch:/usr/share/elasticsearch/data
     ports:
-      - "${RAGFLOW_ES_PORT:-9201}:9200"
+      - "9201:9200"
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -u elastic:${RAGFLOW_ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"]
+      test: ["CMD-SHELL", "curl -s -u elastic:$${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\\\"status\\\":\\\"green\\\\|yellow\\\"'"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
-  # RAGFlow MinIO
+  # RAGFlow MinIO (S3-compatible storage)
   ragflow-minio:
     container_name: ragflow-minio
     image: minio/minio:latest
     restart: unless-stopped
     env_file:
       - ./ragflow/docker/.env
-    environment:
-      - MINIO_ROOT_USER=${RAGFLOW_MINIO_USER}
-      - MINIO_ROOT_PASSWORD=${RAGFLOW_MINIO_PASSWORD}
     volumes:
       - ./ragflow/data/minio:/data
     ports:
-      - "${RAGFLOW_MINIO_PORT:-9000}:9000"
-      - "${RAGFLOW_MINIO_CONSOLE_PORT:-9001}:9001"
+      - "9000:9000"
+      - "9001:9001"
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 15s
       timeout: 10s
       retries: 5
+      start_period: 30s
 
   # RAGFlow Redis
   ragflow-redis:
@@ -308,45 +322,41 @@ services:
     restart: unless-stopped
     env_file:
       - ./ragflow/docker/.env
-    command: redis-server --requirepass ${RAGFLOW_REDIS_PASSWORD}
+    command: sh -c 'redis-server --requirepass "$$REDIS_PASSWORD"'
     volumes:
       - ./ragflow/data/redis:/data
     ports:
-      - "${RAGFLOW_REDIS_PORT:-6380}:6379"
+      - "6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a $$REDIS_PASSWORD ping || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # RAGFlow Server
+  # RAGFlow Server (Main Application with GPU support)
   ragflow-server:
     container_name: ragflow-server
-    image: ${RAGFLOW_IMAGE:-infiniflow/ragflow:v0.21.1}
+    image: infiniflow/ragflow:v0.21.1
     restart: unless-stopped
     env_file:
       - ./ragflow/docker/.env
     environment:
-      - TZ=${TIMEZONE:-Europe/Amsterdam}
+      # Service connection settings (hardcoded)
       - MYSQL_HOST=ragflow-mysql
       - MYSQL_PORT=3306
-      - MYSQL_USER=${RAGFLOW_MYSQL_USER}
-      - MYSQL_PASSWORD=${RAGFLOW_MYSQL_PASSWORD}
-      - MYSQL_DATABASE=${RAGFLOW_MYSQL_DATABASE}
       - REDIS_HOST=ragflow-redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${RAGFLOW_REDIS_PASSWORD}
       - ES_HOST=ragflow-elasticsearch
       - ES_PORT=9200
-      - ELASTIC_PASSWORD=${RAGFLOW_ELASTIC_PASSWORD}
       - MINIO_HOST=ragflow-minio
       - MINIO_PORT=9000
-      - MINIO_USER=${RAGFLOW_MINIO_USER}
-      - MINIO_PASSWORD=${RAGFLOW_MINIO_PASSWORD}
+      # All other variables (passwords, TZ, DOC_BULK_SIZE, EMBEDDING_BATCH_SIZE, etc.) loaded from env_file
     volumes:
       - ./ragflow/data/ragflow:/ragflow/data
+      - ./ragflow/nginx/ragflow.conf:/etc/nginx/sites-enabled/ragflow:ro
+      - ./ragflow/nginx/disabled:/etc/nginx/sites-enabled/default:ro
     ports:
-      - "${SVR_HTTP_PORT:-9380}:80"
+      - "9380:80"
     depends_on:
       ragflow-mysql:
         condition: service_healthy
@@ -361,16 +371,17 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: ${RAGFLOW_GPU_COUNT:-1}
+              count: 1
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 90s
 
-# Примечание: все сервисы автоматически подключаются к существующей сети n8n-installer_default
+# Note: All services automatically connect to the existing n8n-installer network
+# No need to define a separate network - Docker Compose will use the default project network
 ```
 
 ## 🔗 Интеграция с n8n
