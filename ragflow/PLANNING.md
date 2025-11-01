@@ -132,9 +132,11 @@ RAGFlow v0.21.1 (полная версия) включает встроенны�
 
 GPU оптимизирован для максимальной производительности при сохранении стабильности:
 
-- **Memory Limit**: 20GB (из 24GB доступных)
-- **Document Bulk Size**: 10
-- **Embedding Batch Size**: 40
+**Важно:** Docker не ограничивает GPU память (VRAM). RAGFlow автоматически использует всю доступную память (до 24GB на RTX 4090).
+
+**Batch size оптимизация** (официальные переменные из RAGFlow docker/README.md):
+- **DOC_BULK_SIZE**: 10 (default: 4) - document chunks в одном batch при парсинге
+- **EMBEDDING_BATCH_SIZE**: 40 (default: 16) - text chunks при векторизации
 
 ```yaml
 services:
@@ -211,12 +213,12 @@ MINIO_PASSWORD=STRONG_SECURE_PASSWORD_HERE
 # Redis Configuration
 REDIS_PASSWORD=STRONG_SECURE_PASSWORD_HERE
 
-# Resource Limits - OPTIMIZED for RTX 4090 24GB VRAM
-RAGFLOW_MEM_LIMIT=21474836480    # 20GB
+# ВАЖНО: Docker не позволяет ограничивать GPU память (VRAM)
+# RAGFlow использует столько VRAM, сколько требуется (максимум 24GB на RTX 4090)
 
-# Batch Sizes - OPTIMIZED for RTX 4090 24GB VRAM
-DOC_BULK_SIZE=10                 # Document processing batch size
-EMBEDDING_BATCH_SIZE=40          # Embedding generation batch size
+# Batch Sizes - OPTIMIZED for RTX 4090 (официальные переменные RAGFlow)
+DOC_BULK_SIZE=10                 # Document chunks per batch (default: 4)
+EMBEDDING_BATCH_SIZE=40          # Text chunks for embeddings (default: 16)
 
 # Timezone
 TZ=Europe/Moscow
@@ -750,6 +752,22 @@ volumes:
    ```
 3. Перезапустить: `docker compose -p localai restart ragflow-server`
 4. Открыть UI — появится кнопка "Sign Up"
+
+### 8. Файл .env.backup случайно попал в git
+
+**Проблема:** `.env.backup` содержит чувствительные данные и был закоммичен.
+
+**Решение:**
+```bash
+# Удалить из git истории
+git rm --cached ragflow/docker/.env.backup
+
+# Добавить в .gitignore (уже сделано)
+echo "ragflow/docker/.env.backup" >> .gitignore
+
+# Коммит
+git commit -m "Security: Remove .env.backup from git"
+```
 
 ## 📚 Полезные ссылки
 

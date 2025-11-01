@@ -275,6 +275,20 @@ docker stats ragflow-server --no-stream
 watch -n 1 nvidia-smi
 ```
 
+### О переменных оптимизации
+
+**DOC_BULK_SIZE** (документация: `docker/README.md`)
+- Default: 4
+- Текущее значение: 10
+- Назначение: количество документных chunks в одном batch при парсинге
+
+**EMBEDDING_BATCH_SIZE** (документация: `docker/README.md`)
+- Default: 16
+- Текущее значение: 40
+- Назначение: количество text chunks при генерации embeddings
+
+**GPU Memory**: Docker не позволяет ограничивать VRAM. RAGFlow использует столько GPU памяти, сколько требуется (до 24GB на RTX 4090).
+
 ## 📊 Информация о портах
 
 Внешние порты (доступны с хоста):
@@ -302,8 +316,8 @@ nano ragflow/docker/.env
 
 # 2. Изменить значения:
 RAGFLOW_GPU_COUNT=2          # или "all" для автоматического определения
-EMBEDDING_BATCH_SIZE=32      # можно уменьшить для лучшего распределения нагрузки
-DOC_BULK_SIZE=15             # можно увеличить для лучшей утилизации
+EMBEDDING_BATCH_SIZE=32      # default: 16, текущий: 40 (можно снизить для распределения между GPU)
+DOC_BULK_SIZE=15             # default: 4, текущий: 10 (можно увеличить для лучшей утилизации)
 
 # 3. Перезапустить через start_services.py для корректной загрузки конфигурации
 sudo python3 start_services.py

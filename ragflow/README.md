@@ -109,13 +109,19 @@ docker logs -f ragflow-server
 ### Текущая конфигурация
 
 - **GPU Count**: 1 (RTX 4090)
-- **Memory Limit**: 20GB (оптимизировано для RTX 4090 24GB VRAM)
-- **Document Bulk Size**: 10
-- **Embedding Batch Size**: 40
+- **GPU Memory**: Автоматически использует всю доступную VRAM (не ограничивается Docker)
+- **Document Bulk Size**: 10 (default: 4)
+- **Embedding Batch Size**: 40 (default: 16)
 
 ### Оптимизация GPU
 
-Текущая конфигурация оптимизирована для RTX 4090 с 24GB VRAM и обеспечивает баланс между производительностью и стабильностью.
+**Важно:** Docker не позволяет ограничивать GPU память (VRAM). RAGFlow автоматически использует столько VRAM, сколько требуется для обработки (максимум 24GB на RTX 4090).
+
+Текущие batch size значения оптимизированы для RTX 4090:
+- `DOC_BULK_SIZE=10` (официальный default: 4) - количество document chunks в одном batch при парсинге
+- `EMBEDDING_BATCH_SIZE=40` (официальный default: 16) - количество text chunks при векторизации
+
+Эти значения агрессивно повышены для лучшей утилизации GPU.
 
 При добавлении второй RTX 4090:
 
@@ -126,7 +132,6 @@ nano ragflow/docker/.env
 
 # Изменить:
 RAGFLOW_GPU_COUNT=2         # или "all" для автоопределения
-EMBEDDING_BATCH_SIZE=32     # можно увеличить для лучшей утилизации
 
 # Перезапустить через start_services.py
 sudo python3 start_services.py
