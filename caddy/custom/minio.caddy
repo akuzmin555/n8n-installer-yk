@@ -1,0 +1,37 @@
+# MinIO S3 Storage for Langfuse Batch Exports
+# This file is imported by the main Caddyfile and will NOT be affected by updates
+
+{$MINIO_LANGFUSE_HOSTNAME} {
+    # Reverse proxy to MinIO S3 API (port 9000)
+    reverse_proxy minio:9000
+
+    # Enable gzip compression
+    encode gzip
+
+    # Access logging
+    log {
+        output file /var/log/caddy/minio-access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+    }
+
+    # Large file support for exports
+    request_body {
+        max_size 500MB
+    }
+
+    # Headers for S3 compatibility
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+
+        # Remove server header
+        -Server
+    }
+}
