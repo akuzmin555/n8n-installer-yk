@@ -33,6 +33,11 @@
     reverse_proxy ragapp:8000
 }
 
+# RAGFlow
+{$RAGFLOW_HOSTNAME} {
+    reverse_proxy ragflow:80
+}
+
 # Langfuse
 {$LANGFUSE_HOSTNAME} {
     reverse_proxy langfuse-web:3000
@@ -84,6 +89,11 @@
 # Letta
 {$LETTA_HOSTNAME} {
     reverse_proxy letta:8283
+}
+
+# LightRAG (Graph-based RAG with Knowledge Extraction)
+{$LIGHTRAG_HOSTNAME} {
+    reverse_proxy lightrag:9621
 }
 
 # Weaviate
