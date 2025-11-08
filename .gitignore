@@ -9,5 +9,7 @@ shared-backup/
 shared/
 supabase/
 dify/
+ragflow/data/
+ragflow/docker/
 volumes/
 docker-compose.override.yml

@@ -453,7 +453,7 @@ services:
       - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
-    # cap_drop: - ALL  # Temporarily commented out for first run
+    # # cap_drop: - ALL  # Temporarily commented out for first run  # Temporarily commented out for first run
     cap_add:
       - CHOWN
       - SETGID
@@ -972,18 +972,30 @@ services:
       - LIGHTRAG_API_KEY=${LIGHTRAG_API_KEY}
 
       # LLM Configuration (Ollama)
-      - LLM_BINDING=ollama
-      - LLM_MODEL=qwen2.5:32b
-      - LLM_BINDING_HOST=http://ollama:11434
-      - OLLAMA_LLM_NUM_CTX=32768
+      #- LLM_BINDING=ollama
+      #- LLM_MODEL=qwen2.5:32b
+      #- LLM_BINDING_HOST=http://ollama:11434
+      #- OLLAMA_LLM_NUM_CTX=32768
       - MAX_ASYNC=4
+      # LLM Configuration (OpenAI)
+      - LLM_BINDING=openai
+      - LLM_MODEL=gpt-4o-mini
+      - LLM_BINDING_HOST=https://api.openai.com/v1
+      - LLM_BINDING_API_KEY=${OPENAI_API_KEY}
 
       # Embedding Configuration (Ollama)
-      - EMBEDDING_BINDING=ollama
-      - EMBEDDING_MODEL=bge-m3:latest
-      - EMBEDDING_DIM=1024
-      - EMBEDDING_BINDING_HOST=http://ollama:11434
-      - OLLAMA_EMBEDDING_NUM_CTX=8192
+      #- EMBEDDING_BINDING=ollama
+      #- EMBEDDING_MODEL=bge-m3:latest
+      #- EMBEDDING_DIM=1024
+      #- EMBEDDING_BINDING_HOST=http://ollama:11434
+      #- OLLAMA_EMBEDDING_NUM_CTX=8192
+
+      # Embedding Configuration (OpenAI)
+      - EMBEDDING_BINDING=openai
+      - EMBEDDING_MODEL=text-embedding-3-large  # или text-embedding-ada-002
+      - EMBEDDING_DIM=3072  # для text-embedding-3-large (1536 для ada-002)
+      - EMBEDDING_BINDING_API_KEY=${OPENAI_API_KEY}
+
       - EMBEDDING_FUNC_MAX_ASYNC=16
       - EMBEDDING_BATCH_NUM=32
 
