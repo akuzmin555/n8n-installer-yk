@@ -1,6 +1,6 @@
-# n8n Installer
+# n8n Install
 
-**n8n Installer** is an open-source Docker Compose template designed to significantly simplify setting up a comprehensive, self-hosted environment for n8n and Flowise. It bundles essential supporting tools like Open WebUI (as an interface for n8n agents), Supabase (database, vector information storage, authentication), Qdrant (high-performance vector information storage), Langfuse (to observe AI model performance), SearXNG (private metasearch), Grafana/Prometheus (monitoring), Crawl4ai (web crawling), and Caddy (for managed HTTPS). Plus, during setup, you can optionally import over 300 community workflows into your n8n instance!
+**n8n Install** is an open-source Docker Compose template designed to significantly simplify setting up a comprehensive, self-hosted environment for n8n and Flowise. It bundles essential supporting tools like Open WebUI (as an interface for n8n agents), Supabase (database, vector information storage, authentication), Qdrant (high-performance vector information storage), Langfuse (to observe AI model performance), SearXNG (private metasearch), Grafana/Prometheus (monitoring), Crawl4ai (web crawling), and Caddy (for managed HTTPS). Plus, during setup, you can optionally import over 300 community workflows into your n8n instance!
 
 ### Why This Setup?
 
@@ -42,6 +42,8 @@ The installer also makes the following powerful open-source tools **available fo
 
 ✅ [**Letta**](https://docs.letta.com/) - An open-source agent server and SDK that can be connected to various LLM API backends (OpenAI, Anthropic, Ollama, etc.), enabling you to build and manage AI agents.
 
+✅ [**LightRAG**](https://github.com/HKUDS/LightRAG) - A simple and fast graph-based Retrieval-Augmented Generation system with automatic knowledge graph extraction, dual-level retrieval mechanisms, and incremental updates. Supports multiple storage backends (PostgreSQL, Neo4j, JSON) and embedding models.
+
 ✅ [**LibreTranslate**](https://docs.libretranslate.com/) - Self-hosted translation API (50+ languages).
 
 ✅ [**Neo4j**](https://neo4j.com/) - A graph database management system that allows you to model, store, and query data as a network of nodes and relationships.
@@ -63,6 +65,8 @@ The installer also makes the following powerful open-source tools **available fo
 ✅ [**Qdrant**](https://qdrant.tech/) - A high-performance open-source vector store, specialized for AI. While Supabase also offers vector capabilities, Qdrant is included for its speed, making it ideal for demanding AI tasks.
 
 ✅ [**RAGApp**](https://github.com/ragapp/ragapp) - Open-source application to build Retrieval-Augmented Generation (RAG) assistants over your data. Provides a web UI for chat and an HTTP API for integration with your workflows.
+
+✅ [**RAGFlow**](https://ragflow.io/) - An open-source RAG engine based on deep document understanding with Elasticsearch backend, providing truthful question-answering capabilities with well-founded citations from complex formatted data.
 
 ✅ [**SearXNG**](https://searxng.org/) - A free, open-source internet metasearch engine. It aggregates results from numerous search services without tracking or profiling you, ensuring your privacy.
 
@@ -99,7 +103,7 @@ Get started quickly with a vast library of pre-built automations (optional impor
     - For running **all available services**: at least **8 GB Memory / 4 CPU Cores / 60 GB Disk Space **.
     - For a minimal setup with only **n8n and Flowise**: **4 GB Memory / 2 CPU Cores / 30 GB Disk Space**.
 
-### Running the Installer
+### Running the Install
 
 The recommended way to install is using the provided main installation script.
 
@@ -107,7 +111,7 @@ The recommended way to install is using the provided main installation script.
 2.  Run the following command:
 
     ```bash
-    git clone https://github.com/kossakovsky/n8n-installer && cd n8n-installer && sudo bash ./scripts/install.sh
+    git clone https://github.com/kossakovsky/n8n-install && cd n8n-install && sudo bash ./scripts/install.sh
     ```
 
 This single command automates the entire setup process, including:
@@ -141,6 +145,7 @@ After successful installation, your services are up and running! Here's how to g
     - **Flowise:** `flowise.yourdomain.com` (Log in with the email address you provided during installation and the initial password from the summary report.)
     - **Grafana:** `grafana.yourdomain.com`
     - **Langfuse:** `langfuse.yourdomain.com`
+    - **LightRAG:** `lightrag.yourdomain.com`
     - **Letta:** `letta.yourdomain.com`
     - **LibreTranslate:** `translate.yourdomain.com`
     - **Neo4j:** `neo4j.yourdomain.com`
@@ -152,6 +157,7 @@ After successful installation, your services are up and running! Here's how to g
     - **Prometheus:** `prometheus.yourdomain.com` (Typically used as a data source for Grafana)
     - **Qdrant:** `qdrant.yourdomain.com`
     - **RAGApp:** `ragapp.yourdomain.com`
+    - **RAGFlow:** `ragflow.yourdomain.com`
     - **SearXNG:** `searxng.yourdomain.com`
     - **Supabase (Dashboard):** `supabase.yourdomain.com`
     - **WAHA:** `waha.yourdomain.com` (WhatsApp HTTP API; engines: WEBJS, NOWEB, GOWS)
@@ -304,7 +310,7 @@ When you build automations in n8n that need to read or write files on your serve
 
 ## 🙌 Contributors
 
-Want to see who has contributed to this project? Check out the [**GitHub Contributors Page**](https://github.com/kossakovsky/n8n-installer/graphs/contributors)!
+Want to see who has contributed to this project? Check out the [**GitHub Contributors Page**](https://github.com/kossakovsky/n8n-install/graphs/contributors)!
 
 ## 📜 License
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to guide user through service selection for n8n-installer
+# Script to guide user through service selection
 
 # Source utility functions, if any, assuming it's in the same directory
 # and .env is in the parent directory
@@ -58,6 +58,7 @@ base_services_data=(
     "gotenberg" "Gotenberg (Document Conversion API)"
     "langfuse" "Langfuse Suite (AI Observability - includes Clickhouse, Minio)"
     "letta" "Letta (Agent Server & SDK)"
+    "lightrag" "LightRAG (Graph-based RAG with knowledge graphs)"
     "libretranslate" "LibreTranslate (Self-hosted translation API - 50+ languages)"
     "monitoring" "Monitoring Suite (Prometheus, Grafana, cAdvisor, Node-Exporter)"
     "n8n" "n8n, n8n-worker, n8n-import (Workflow Automation)"
@@ -71,6 +72,7 @@ base_services_data=(
     "python-runner" "Python Runner (Run your custom Python code from ./python-runner)"
     "qdrant" "Qdrant (Vector Database)"
     "ragapp" "RAGApp (Open-source RAG UI + API)"
+    "ragflow" "RAGFlow (Deep document understanding RAG engine)"
     "searxng" "SearXNG (Private Metasearch Engine)"
     "supabase" "Supabase (Backend as a Service)"
     "waha" "WAHA – WhatsApp HTTP API (NOWEB engine)"

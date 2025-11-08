@@ -172,6 +172,16 @@ if is_profile_active "ragapp"; then
   echo "API Docs: https://${RAGAPP_HOSTNAME:-<hostname_not_set>}/docs"
 fi
 
+if is_profile_active "ragflow"; then
+  echo
+  echo "================================= RAGFlow ============================="
+  echo
+  echo "Host: ${RAGFLOW_HOSTNAME:-<hostname_not_set>}"
+  echo "API (external via Caddy): https://${RAGFLOW_HOSTNAME:-<hostname_not_set>}"
+  echo "API (internal): http://ragflow:80"
+  echo "Note: Uses built-in authentication (login/registration available in web UI)"
+fi
+
 if is_profile_active "comfyui"; then
   echo
   echo "================================= ComfyUI ============================="
@@ -282,6 +292,32 @@ if is_profile_active "letta"; then
   echo "Authorization: Bearer ${LETTA_SERVER_PASSWORD}"
 fi
 
+if is_profile_active "lightrag"; then
+  echo
+  echo "================================= LightRAG ============================="
+  echo
+  echo "Host: ${LIGHTRAG_HOSTNAME:-<hostname_not_set>}"
+  echo "Web UI: https://${LIGHTRAG_HOSTNAME:-<hostname_not_set>}"
+  echo "Internal Access (e.g., from n8n): http://lightrag:9621"
+  echo ""
+  echo "Authentication (Web UI):"
+  echo "  User: ${LIGHTRAG_USERNAME:-<not_set_in_env>}"
+  echo "  Password: ${LIGHTRAG_PASSWORD:-<not_set_in_env>}"
+  echo ""
+  echo "API Access:"
+  echo "  API Key: ${LIGHTRAG_API_KEY:-<not_set_in_env>}"
+  echo "  API Docs: https://${LIGHTRAG_HOSTNAME:-<hostname_not_set>}/docs"
+  echo "  Ollama-compatible: https://${LIGHTRAG_HOSTNAME:-<hostname_not_set>}/v1/chat/completions"
+  echo ""
+  echo "Configuration:"
+  echo "  LLM: Ollama (qwen2.5:32b) at http://ollama:11434"
+  echo "  Embeddings: Ollama (bge-m3:latest) at http://ollama:11434"
+  echo "  Storage: Flexible (JSON/PostgreSQL/Neo4j based on installed services)"
+  echo ""
+  echo "Note: Requires Ollama to be installed and running for LLM and embeddings."
+  echo "      Upload documents via /app/data/inputs volume or Web UI."
+fi
+
 if is_profile_active "cpu" || is_profile_active "gpu-nvidia" || is_profile_active "gpu-amd"; then
   echo
   echo "================================= Ollama =============================="
@@ -376,5 +412,5 @@ echo "3. Configure services as needed (e.g., first-run setup for n8n)."
 echo
 echo "======================================================================"
 echo
-log_info "Thank you for using this installer setup!"
+log_info "Thank you for using this repository!"
 echo

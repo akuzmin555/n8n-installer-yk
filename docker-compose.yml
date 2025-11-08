@@ -10,6 +10,8 @@ volumes:
   langfuse_postgres_data:
   letta_data:
   libretranslate_api_keys:
+  lightrag_data:
+  lightrag_inputs:
   libretranslate_models:
   n8n_storage:
   ollama_storage:
@@ -23,6 +25,11 @@ volumes:
   postiz-uploads:
   prometheus_data:
   qdrant_storage:
+  ragflow_data:
+  ragflow_elasticsearch_data:
+  ragflow_minio_data:
+  ragflow_mysql_data:
+  ragflow_redis_data:
   valkey-data:
   weaviate_data:
 
@@ -228,6 +235,7 @@ services:
       - LANGFUSE_HOSTNAME=${LANGFUSE_HOSTNAME}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}
       - LETTA_HOSTNAME=${LETTA_HOSTNAME}
+      - LIGHTRAG_HOSTNAME=${LIGHTRAG_HOSTNAME}
       - LT_HOSTNAME=${LT_HOSTNAME}
       - LT_USERNAME=${LT_USERNAME}
       - LT_PASSWORD_HASH=${LT_PASSWORD_HASH}
@@ -245,6 +253,7 @@ services:
       - PROMETHEUS_USERNAME=${PROMETHEUS_USERNAME}
       - QDRANT_HOSTNAME=${QDRANT_HOSTNAME}
       - RAGAPP_HOSTNAME=${RAGAPP_HOSTNAME}
+      - RAGFLOW_HOSTNAME=${RAGFLOW_HOSTNAME}
       - RAGAPP_PASSWORD_HASH=${RAGAPP_PASSWORD_HASH}
       - RAGAPP_USERNAME=${RAGAPP_USERNAME}
       - SEARXNG_HOSTNAME=${SEARXNG_HOSTNAME}
@@ -406,6 +415,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
     volumes:
+      # TODO: Rename to postgres_data
       - langfuse_postgres_data:/var/lib/postgresql/data
 
   redis:
@@ -769,7 +779,7 @@ services:
     # python -m paddlex --get_pipeline_config PP-ChatOCRv4-doc --save_path /app; \
     command: /bin/sh -c "set -e; \
       python -m pip install --upgrade pip; \
-      python -m pip install --no-cache-dir 'paddlex[all]'; \
+      python -m pip install --no-cache-dir 'paddlex[all,ocr,ie]'; \
       python -m paddlex --install serving; \
       exec python -m paddlex --serve --pipeline '/app/ocr_config.yml' --device cpu --port 8080"
     volumes:
@@ -806,3 +816,235 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  ragflow:
+    image: infiniflow/ragflow:latest
+    container_name: ragflow
+    profiles: ["ragflow"]
+    restart: unless-stopped
+    environment:
+      - SVR_HTTP_PORT=80
+      - REDIS_HOST=ragflow-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${RAGFLOW_REDIS_PASSWORD}
+      - MYSQL_HOST=ragflow-mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=${RAGFLOW_MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=rag_flow
+      - DOC_ENGINE=elasticsearch
+      - ES_HOST=ragflow-elasticsearch
+      - ES_PORT=9200
+      - ELASTIC_PASSWORD=${RAGFLOW_ELASTICSEARCH_PASSWORD}
+      - MINIO_HOST=ragflow-minio
+      - MINIO_PORT=9000
+      - MINIO_USER=minio
+      - MINIO_PASSWORD=${RAGFLOW_MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET=ragflow
+    volumes:
+      - ragflow_data:/ragflow
+      - ./ragflow/nginx.conf:/etc/nginx/sites-available/default:ro
+    depends_on:
+      ragflow-elasticsearch:
+        condition: service_healthy
+      ragflow-mysql:
+        condition: service_healthy
+      ragflow-minio:
+        condition: service_healthy
+      ragflow-redis:
+        condition: service_healthy
+
+  ragflow-mysql:
+    image: mysql:8
+    container_name: ragflow-mysql
+    profiles: ["ragflow"]
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${RAGFLOW_MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=rag_flow
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - ragflow_mysql_data:/var/lib/mysql
+
+  ragflow-minio:
+    image: minio/minio
+    container_name: ragflow-minio
+    profiles: ["ragflow"]
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/ragflow && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      - MINIO_ROOT_USER=minio
+      - MINIO_ROOT_PASSWORD=${RAGFLOW_MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - ragflow_minio_data:/data
+
+  ragflow-redis:
+    image: docker.io/valkey/valkey:8-alpine
+    container_name: ragflow-redis
+    profiles: ["ragflow"]
+    restart: unless-stopped
+    command: valkey-server --save 30 1 --loglevel warning --requirepass ${RAGFLOW_REDIS_PASSWORD}
+    volumes:
+      - ragflow_redis_data:/data
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "${RAGFLOW_REDIS_PASSWORD}", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  ragflow-elasticsearch:
+    image: elasticsearch:8.11.3
+    container_name: ragflow-elasticsearch
+    profiles: ["ragflow"]
+    restart: unless-stopped
+    environment:
+      - node.name=ragflow-es01
+      - discovery.type=single-node
+      - ELASTIC_PASSWORD=${RAGFLOW_ELASTICSEARCH_PASSWORD}
+      - bootstrap.memory_lock=false
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - cluster.routing.allocation.disk.watermark.low=5gb
+      - cluster.routing.allocation.disk.watermark.high=3gb
+      - cluster.routing.allocation.disk.watermark.flood_stage=2gb
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - ragflow_elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -u elastic:${RAGFLOW_ELASTICSEARCH_PASSWORD} http://localhost:9200/_cluster/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+  lightrag:
+    image: ghcr.io/hkuds/lightrag:latest
+    container_name: lightrag
+    profiles: ["lightrag"]
+    restart: unless-stopped
+    environment:
+      # Server Configuration
+      - HOST=0.0.0.0
+      - PORT=9621
+      - WEBUI_TITLE=LightRAG Knowledge Graph
+      - WEBUI_DESCRIPTION=Graph-based RAG with Knowledge Extraction
+
+      # Authentication (Built-in)
+      - AUTH_ACCOUNTS=${LIGHTRAG_USERNAME}:${LIGHTRAG_PASSWORD}
+      - LIGHTRAG_API_KEY=${LIGHTRAG_API_KEY}
+
+      # LLM Configuration (Ollama)
+      - LLM_BINDING=ollama
+      - LLM_MODEL=qwen2.5:32b
+      - LLM_BINDING_HOST=http://ollama:11434
+      - OLLAMA_LLM_NUM_CTX=32768
+      - MAX_ASYNC=4
+
+      # Embedding Configuration (Ollama)
+      - EMBEDDING_BINDING=ollama
+      - EMBEDDING_MODEL=bge-m3:latest
+      - EMBEDDING_DIM=1024
+      - EMBEDDING_BINDING_HOST=http://ollama:11434
+      - OLLAMA_EMBEDDING_NUM_CTX=8192
+      - EMBEDDING_FUNC_MAX_ASYNC=16
+      - EMBEDDING_BATCH_NUM=32
+
+      # Query Configuration
+      - ENABLE_LLM_CACHE=true
+      - TOP_K=60
+      - CHUNK_TOP_K=20
+      - COSINE_THRESHOLD=0.2
+      - MAX_ENTITY_TOKENS=6000
+      - MAX_RELATION_TOKENS=8000
+      - MAX_TOTAL_TOKENS=30000
+
+      # Document Processing
+      - ENABLE_LLM_CACHE_FOR_EXTRACT=true
+      - SUMMARY_LANGUAGE=English
+      - CHUNK_SIZE=1200
+      - CHUNK_OVERLAP_SIZE=100
+      - SUMMARY_MAX_TOKENS=500
+      - SUMMARY_CONTEXT_SIZE=10000
+
+      # Storage Configuration (Flexible - uses PostgreSQL/Neo4j if available)
+      - LIGHTRAG_KV_STORAGE=JsonKVStorage
+      - LIGHTRAG_DOC_STATUS_STORAGE=JsonDocStatusStorage
+      - LIGHTRAG_GRAPH_STORAGE=${LIGHTRAG_GRAPH_STORAGE:-NetworkXStorage}
+      - LIGHTRAG_VECTOR_STORAGE=${LIGHTRAG_VECTOR_STORAGE:-NanoVectorDBStorage}
+
+      # PostgreSQL Configuration (if using PostgreSQL storage)
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DATABASE=postgres
+      - POSTGRES_MAX_CONNECTIONS=12
+      - POSTGRES_VECTOR_INDEX_TYPE=HNSW
+      - POSTGRES_HNSW_M=16
+      - POSTGRES_HNSW_EF=200
+
+      # Neo4j Configuration (if using Neo4j storage)
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USERNAME=${NEO4J_AUTH_USERNAME:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_AUTH_PASSWORD}
+      - NEO4J_DATABASE=neo4j
+
+      # Directories
+      - INPUT_DIR=/app/data/inputs
+      - WORKING_DIR=/app/data/rag_storage
+
+    volumes:
+      - lightrag_data:/app/data/rag_storage
+      - lightrag_inputs:/app/data/inputs
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:9621/health > /dev/null 2>&1 || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
