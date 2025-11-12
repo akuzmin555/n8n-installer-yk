@@ -221,6 +221,22 @@ if is_profile_active "crawl4ai"; then
   echo "(Note: Not exposed externally via Caddy by default)"
 fi
 
+if is_profile_active "docling"; then
+  echo
+  echo "================================= Docling ============================="
+  echo
+  echo "Web UI: https://${DOCLING_HOSTNAME:-<hostname_not_set>}/ui"
+  echo "API Docs: https://${DOCLING_HOSTNAME:-<hostname_not_set>}/docs"
+  echo ""
+  echo ""
+  echo "User: ${DOCLING_USERNAME:-<not_set_in_env>}"
+  echo "Password: ${DOCLING_PASSWORD:-<not_set_in_env>}"
+  echo ""
+  echo ""
+  echo "API (external via Caddy): https://${DOCLING_HOSTNAME:-<hostname_not_set>}"
+  echo "API (internal): http://docling:5001"
+fi
+
 if is_profile_active "gotenberg"; then
   echo
   echo "================================= Gotenberg ============================"
