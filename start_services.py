@@ -219,14 +219,20 @@ def start_local_ai():
     """Start the local AI services (using its compose file)."""
     print("Starting local AI services...")
 
+    # Build compose file list (base + override if exists)
+    compose_files = ["-f", "docker-compose.yml"]
+    if os.path.exists("docker-compose.override.yml"):
+        print("Found docker-compose.override.yml, applying overrides...")
+        compose_files.extend(["-f", "docker-compose.override.yml"])
+
     # Explicitly build services and pull newer base images first.
     print("Checking for newer base images and building services...")
-    build_cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml", "build", "--pull"]
+    build_cmd = ["docker", "compose", "-p", "localai"] + compose_files + ["build", "--pull"]
     run_command(build_cmd)
 
     # Now, start the services using the newly built images. No --build needed as we just built.
     print("Starting containers...")
-    up_cmd = ["docker", "compose", "-p", "localai", "-f", "docker-compose.yml", "up", "-d"]
+    up_cmd = ["docker", "compose", "-p", "localai"] + compose_files + ["up", "-d"]
     run_command(up_cmd)
 
 def generate_searxng_secret_key():
