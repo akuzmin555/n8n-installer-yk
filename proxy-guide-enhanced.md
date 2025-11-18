@@ -9,14 +9,15 @@
 3. [Требования](#требования)
 4. [Часть 1: Настройка прокси-сервера](#часть-1-настройка-прокси-сервера)
 5. [Часть 2: Настройка n8n-installer проекта](#часть-2-настройка-n8n-installer-проекта)
-6. [Часть 3: Тестирование интеграции](#часть-3-тестирование-интеграции)
-7. [Часть 4: Автоматизация](#часть-4-автоматизация)
-8. [Устранение неполадок](#устранение-неполадок)
-9. [Мониторинг и обслуживание](#мониторинг-и-обслуживание)
-10. [Безопасность](#безопасность)
-11. [Альтернативные решения](#альтернативные-решения)
-12. [Стоимость и производительность](#стоимость-и-производительность)
-13. [Заключение](#заключение)
+6. [Часть 2.5: Настройка для Claude Code на хост-системе](#часть-25-настройка-для-claude-code-на-хост-системе)
+7. [Часть 3: Тестирование интеграции](#часть-3-тестирование-интеграции)
+8. [Часть 4: Автоматизация](#часть-4-автоматизация)
+9. [Устранение неполадок](#устранение-неполадок)
+10. [Мониторинг и обслуживание](#мониторинг-и-обслуживание)
+11. [Безопасность](#безопасность)
+12. [Альтернативные решения](#альтернативные-решения)
+13. [Стоимость и производительность](#стоимость-и-производительность)
+14. [Заключение](#заключение)
 
 ---
 
@@ -75,17 +76,34 @@ docker run -d --name llm-proxy -p 443:443 \
 ```bash
 cd /home/ssh_p_ub_wsl6/localai/n8n-installer-yk
 
-# Использовать автоматический скрипт
-bash scripts/configure_proxy.sh YOUR_PROXY_IP
+# ВАЖНО: Создайте docker-compose.override.yml вручную (см. Часть 2)
+# Убедитесь, что имена сервисов правильные (ragflow, а не ragflow-server)
 
-# Или создать docker-compose.override.yml вручную (см. Часть 2)
+# Модифицируйте start_services.py (КРИТИЧНО! см. Часть 2, Шаг 4)
+# Иначе override файл не будет применен
 
-# Перезапустить сервисы
-docker compose -p localai down
-docker compose -p localai up -d
+# Перезапустить сервисы используя модифицированный скрипт
+sudo python3 start_services.py
+
+# Или вручную с явным указанием обоих файлов
+sudo docker compose -p localai -f docker-compose.yml -f docker-compose.override.yml up -d
+
+# Проверить (имя контейнера может быть просто 'n8n', а не 'localai-n8n-1')
+docker exec n8n getent hosts api.openai.com
+docker exec n8n getent hosts api.anthropic.com
+```
+
+### Для Claude Code на хост-системе (без Docker):
+
+```bash
+# На основном сервере добавить в /etc/hosts
+sudo bash -c "echo 'YOUR_PROXY_IP api.anthropic.com' >> /etc/hosts"
+
+# Или использовать автоматический скрипт
+sudo bash scripts/configure_proxy_host.sh YOUR_PROXY_IP
 
 # Проверить
-docker exec localai-n8n-1 getent hosts api.openai.com
+curl -I https://api.anthropic.com/v1/messages
 ```
 
 Для подробных инструкций читайте полное руководство ниже.
@@ -305,7 +323,39 @@ services:
       - "api-inference.huggingface.co:YOUR_PROXY_IP"
 
   # RAGFlow (если используется)
-  ragflow-server:
+  ragflow:
+    extra_hosts:
+      - "api.openai.com:YOUR_PROXY_IP"
+      - "api.anthropic.com:YOUR_PROXY_IP"
+      - "huggingface.co:YOUR_PROXY_IP"
+      - "api-inference.huggingface.co:YOUR_PROXY_IP"
+
+  # Open WebUI
+  open-webui:
+    extra_hosts:
+      - "api.openai.com:YOUR_PROXY_IP"
+      - "api.anthropic.com:YOUR_PROXY_IP"
+      - "huggingface.co:YOUR_PROXY_IP"
+      - "api-inference.huggingface.co:YOUR_PROXY_IP"
+
+  # LightRAG
+  lightrag:
+    extra_hosts:
+      - "api.openai.com:YOUR_PROXY_IP"
+      - "api.anthropic.com:YOUR_PROXY_IP"
+      - "huggingface.co:YOUR_PROXY_IP"
+      - "api-inference.huggingface.co:YOUR_PROXY_IP"
+
+  # Letta
+  letta:
+    extra_hosts:
+      - "api.openai.com:YOUR_PROXY_IP"
+      - "api.anthropic.com:YOUR_PROXY_IP"
+      - "huggingface.co:YOUR_PROXY_IP"
+      - "api-inference.huggingface.co:YOUR_PROXY_IP"
+
+  # ComfyUI
+  comfyui:
     extra_hosts:
       - "api.openai.com:YOUR_PROXY_IP"
       - "api.anthropic.com:YOUR_PROXY_IP"
@@ -342,17 +392,54 @@ docker compose -p localai config > /tmp/merged-config.yml
 grep -A 5 "extra_hosts" /tmp/merged-config.yml
 ```
 
-### Шаг 4: Запуск сервисов
+### Шаг 4: Модификация start_services.py (КРИТИЧНО!)
+
+**⚠️ ВАЖНО**: Если вы используете скрипт `start_services.py` для запуска сервисов, необходимо его модифицировать, чтобы он подхватывал `docker-compose.override.yml`!
+
+**Проблема**: Когда в команде Docker Compose явно указан файл через `-f docker-compose.yml`, Docker Compose **НЕ** подхватывает `docker-compose.override.yml` автоматически.
+
+**Решение**: Модифицировать функцию `start_local_ai()` в `start_services.py`:
+
+```python
+def start_local_ai():
+    """Start the local AI services (using its compose file)."""
+    print("Starting local AI services...")
+
+    # Build compose file list (base + override if exists)
+    compose_files = ["-f", "docker-compose.yml"]
+    if os.path.exists("docker-compose.override.yml"):
+        print("Found docker-compose.override.yml, applying overrides...")
+        compose_files.extend(["-f", "docker-compose.override.yml"])
+
+    # Explicitly build services and pull newer base images first.
+    print("Checking for newer base images and building services...")
+    build_cmd = ["docker", "compose", "-p", "localai"] + compose_files + ["build", "--pull"]
+    run_command(build_cmd)
+
+    # Now, start the services using the newly built images. No --build needed as we just built.
+    print("Starting containers...")
+    up_cmd = ["docker", "compose", "-p", "localai"] + compose_files + ["up", "-d"]
+    run_command(up_cmd)
+```
+
+После модификации запустите сервисы:
+
+```bash
+# Используя модифицированный скрипт
+sudo python3 start_services.py
+```
+
+**Альтернативный метод** (если не хотите модифицировать скрипт):
 
 ```bash
 # Остановка всех сервисов (если запущены)
 docker compose -p localai down
 
-# Запуск с применением override файла (автоматически)
-docker compose -p localai up -d
+# Запуск с явным указанием обоих файлов
+sudo docker compose -p localai -f docker-compose.yml -f docker-compose.override.yml up -d
 
 # Или пересоздание конкретных сервисов
-docker compose -p localai up -d --force-recreate n8n n8n-worker docling
+sudo docker compose -p localai -f docker-compose.yml -f docker-compose.override.yml up -d --force-recreate n8n n8n-worker docling
 ```
 
 ### Шаг 5: Проверка применения настроек
@@ -442,39 +529,375 @@ PROXY_SERVER_IP=178.208.89.210
 
 ---
 
+## Часть 2.5: Настройка для Claude Code на хост-системе
+
+Если вы используете **Claude Code** (или другие приложения) прямо на Ubuntu сервере (не в Docker контейнере), настройка прокси отличается от Docker подхода с `extra_hosts`. Для хост-системы используется модификация файла `/etc/hosts`.
+
+### Когда использовать этот метод
+
+✅ **Используйте эту секцию если:**
+- Claude Code CLI запускается прямо на Ubuntu сервере
+- Приложения работают на хост-системе (не в Docker)
+- Вам нужен доступ к Anthropic API для приложений вне контейнеров
+
+❌ **НЕ используйте для:**
+- Docker контейнеров (используйте Часть 2 с docker-compose.override.yml)
+- Приложений, которые поддерживают переменные HTTPS_PROXY/HTTP_PROXY
+
+### Архитектура
+
+```
+[Claude Code на хост-системе] --/etc/hosts--> [Proxy Server] --HTTPS--> [Anthropic API]
+       Ubuntu Server                            (YOUR_PROXY_IP)
+```
+
+При обращении к `api.anthropic.com`, система сначала смотрит в `/etc/hosts` и находит там ваш IP прокси-сервера, затем соединяется с прокси, который перенаправляет трафик к настоящему API.
+
+---
+
+### Шаг 1: Подключение к основному серверу
+
+```bash
+ssh root@your-main-server-ip
+cd /home/ssh_p_ub_wsl6/localai/n8n-installer-yk
+```
+
+### Шаг 2: Модификация /etc/hosts (ручной способ)
+
+**Важно**: Этот метод требует root прав, так как `/etc/hosts` - системный файл.
+
+```bash
+# Проверяем текущее содержимое
+cat /etc/hosts
+
+# Добавляем записи для API endpoints
+sudo bash -c 'cat >> /etc/hosts << EOF
+
+# Прокси для AI API (добавлено для обхода гео-блокировок)
+YOUR_PROXY_IP api.anthropic.com
+YOUR_PROXY_IP api.openai.com
+YOUR_PROXY_IP huggingface.co
+YOUR_PROXY_IP api-inference.huggingface.co
+EOF'
+```
+
+**Замените `YOUR_PROXY_IP`** на реальный IP адрес вашего прокси-сервера:
+
+```bash
+# Пример с конкретным IP
+sudo bash -c 'cat >> /etc/hosts << EOF
+
+# Прокси для AI API (добавлено для обхода гео-блокировок)
+178.208.89.210 api.anthropic.com
+178.208.89.210 api.openai.com
+178.208.89.210 huggingface.co
+178.208.89.210 api-inference.huggingface.co
+EOF'
+```
+
+### Шаг 3: Проверка изменений
+
+```bash
+# Проверяем, что записи добавились
+cat /etc/hosts | grep -E "anthropic|openai|huggingface"
+
+# Проверяем DNS resolution
+getent hosts api.anthropic.com
+# Должен вернуть: YOUR_PROXY_IP  api.anthropic.com
+
+# Проверяем соединение с прокси
+ping -c 3 YOUR_PROXY_IP
+
+# Проверяем доступность порта 443 на прокси
+nc -zv YOUR_PROXY_IP 443
+```
+
+### Шаг 4: Тестирование доступа к Anthropic API
+
+```bash
+# Тест с реальным API ключом (замените YOUR_API_KEY)
+curl -v https://api.anthropic.com/v1/messages \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-3-5-sonnet-20241022",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "max_tokens": 10
+  }'
+```
+
+**Ожидаемый результат**: Вы должны увидеть в выводе curl:
+- `* Connected to api.anthropic.com (YOUR_PROXY_IP) port 443`
+- Успешный SSL handshake
+- Ответ от API (или ошибку 401 если ключ неверный, но это означает что соединение работает)
+
+### Шаг 5: Запуск Claude Code
+
+После настройки прокси, Claude Code автоматически будет использовать эти настройки:
+
+```bash
+# Просто запустите Claude Code как обычно
+claude
+
+# Claude Code будет использовать api.anthropic.com через ваш прокси
+```
+
+---
+
+### Автоматизация с помощью скрипта
+
+Для упрощения настройки создан скрипт (см. Часть 4: Автоматизация):
+
+```bash
+# Использование автоматического скрипта
+sudo bash scripts/configure_proxy_host.sh 178.208.89.210
+
+# Скрипт автоматически:
+# 1. Создаст backup /etc/hosts
+# 2. Добавит записи для AI API
+# 3. Проверит доступность прокси
+# 4. Протестирует DNS resolution
+```
+
+---
+
+### Отключение прокси для хост-системы
+
+Если нужно временно отключить прокси:
+
+```bash
+# Создайте backup
+sudo cp /etc/hosts /etc/hosts.backup
+
+# Удалите строки с прокси
+sudo sed -i '/# Прокси для AI API/,+4d' /etc/hosts
+
+# Проверьте
+cat /etc/hosts
+```
+
+Или закомментируйте строки вместо удаления:
+
+```bash
+# Закомментировать записи прокси
+sudo sed -i '/api.anthropic.com/s/^/# /' /etc/hosts
+sudo sed -i '/api.openai.com/s/^/# /' /etc/hosts
+sudo sed -i '/huggingface.co/s/^/# /' /etc/hosts
+sudo sed -i '/api-inference.huggingface.co/s/^/# /' /etc/hosts
+
+# Проверить
+getent hosts api.anthropic.com
+# Должен вернуть настоящий IP Anthropic
+```
+
+### Включение прокси обратно
+
+```bash
+# Раскомментировать
+sudo sed -i '/api.anthropic.com/s/^# //' /etc/hosts
+sudo sed -i '/api.openai.com/s/^# //' /etc/hosts
+sudo sed -i '/huggingface.co/s/^# //' /etc/hosts
+sudo sed -i '/api-inference.huggingface.co/s/^# //' /etc/hosts
+
+# Или восстановить из backup
+sudo cp /etc/hosts.backup /etc/hosts
+```
+
+---
+
+### Важные замечания
+
+#### 1. Область действия /etc/hosts
+
+- ✅ **Работает для**: Всех приложений на хост-системе (включая Claude Code, curl, Python скрипты)
+- ❌ **НЕ работает для**: Docker контейнеров (они имеют свой собственный /etc/hosts)
+
+#### 2. Совместимость с Docker
+
+Если у вас **одновременно** работают:
+- Claude Code на хост-системе
+- Docker контейнеры с AI сервисами (n8n, flowise, etc.)
+
+То нужно использовать **оба** метода:
+```bash
+# Для хост-системы (Claude Code)
+sudo bash scripts/configure_proxy_host.sh YOUR_PROXY_IP
+
+# Для Docker контейнеров (n8n, flowise, etc.)
+bash scripts/configure_proxy.sh YOUR_PROXY_IP
+docker compose -p localai down && docker compose -p localai up -d
+```
+
+#### 3. Приоритет DNS resolution
+
+Linux система проверяет адреса в следующем порядке:
+1. `/etc/hosts` (самый высокий приоритет)
+2. DNS серверы из `/etc/resolv.conf`
+
+Поэтому изменения в `/etc/hosts` сразу вступают в силу без перезагрузки.
+
+#### 4. Безопасность
+
+- ⚠️ **Внимание**: Изменения в `/etc/hosts` влияют на **ВСЕ** приложения на сервере
+- Убедитесь, что вы доверяете прокси-серверу
+- Рекомендуется использовать выделенный сервер только для прокси (без других сервисов)
+
+#### 5. Мониторинг изменений
+
+Чтобы отслеживать, когда /etc/hosts изменялся:
+
+```bash
+# Посмотреть дату последнего изменения
+ls -l /etc/hosts
+
+# Создать backup с датой
+sudo cp /etc/hosts /etc/hosts.backup.$(date +%Y%m%d_%H%M%S)
+```
+
+---
+
+### Сравнение методов
+
+| Метод | Область действия | Сложность | Постоянство |
+|-------|------------------|-----------|-------------|
+| `/etc/hosts` | Вся хост-система | Низкая | Постоянное (до изменения файла) |
+| `docker-compose.override.yml` | Только Docker контейнеры | Низкая | Постоянное (пока существует файл) |
+| `HTTPS_PROXY` env var | Только приложения с поддержкой прокси | Низкая | Сессия (пока экспортировано) |
+| VPN/WireGuard | Вся система + сеть | Высокая | Постоянное (пока запущен VPN) |
+
+Для Claude Code на хост-системе **оптимальный выбор** - это `/etc/hosts`, так как:
+- ✅ Работает прозрачно для всех приложений
+- ✅ Не требует настройки каждого приложения отдельно
+- ✅ Легко включать/отключать
+- ✅ Не влияет на производительность
+
+---
+
+### Troubleshooting для хост-системы
+
+#### Проблема: /etc/hosts изменен, но curl все еще обращается к реальному IP
+
+**Диагностика**:
+```bash
+# Проверяем, что изменения есть в файле
+grep api.anthropic.com /etc/hosts
+
+# Проверяем DNS resolution
+getent hosts api.anthropic.com
+
+# Проверяем с nslookup (может игнорировать /etc/hosts!)
+nslookup api.anthropic.com
+```
+
+**Решение**:
+- `getent hosts` использует `/etc/hosts`, поэтому должен показать ваш прокси IP
+- `nslookup` может игнорировать `/etc/hosts` и обращаться напрямую к DNS
+- Используйте `getent hosts` или `dig` для проверки
+
+#### Проблема: Ошибка "Permission denied" при редактировании /etc/hosts
+
+**Решение**:
+```bash
+# Используйте sudo
+sudo nano /etc/hosts
+
+# Или для скриптов
+sudo bash -c "echo 'YOUR_PROXY_IP api.anthropic.com' >> /etc/hosts"
+```
+
+#### Проблема: Изменения в /etc/hosts не сохраняются после перезагрузки
+
+**Диагностика**:
+```bash
+# Проверьте, не используется ли cloud-init или netplan для управления /etc/hosts
+ls -l /etc/cloud/templates/hosts.*
+```
+
+**Решение** (для Ubuntu с cloud-init):
+```bash
+# Отключите управление /etc/hosts через cloud-init
+sudo nano /etc/cloud/cloud.cfg
+
+# Найдите строку:
+# manage_etc_hosts: true
+
+# Замените на:
+# manage_etc_hosts: false
+
+# Или добавьте preserve_hostname: true
+```
+
+#### Проблема: Claude Code работает, но медленно
+
+**Диагностика**:
+```bash
+# Проверьте задержку до прокси-сервера
+ping -c 10 YOUR_PROXY_IP
+
+# Проверьте traceroute
+traceroute YOUR_PROXY_IP
+
+# Проверьте скорость соединения
+curl -w "@-" -o /dev/null -s https://api.anthropic.com/v1/messages << 'EOF'
+time_namelookup: %{time_namelookup}s\n
+time_connect: %{time_connect}s\n
+time_appconnect: %{time_appconnect}s\n
+time_pretransfer: %{time_pretransfer}s\n
+time_starttransfer: %{time_starttransfer}s\n
+time_total: %{time_total}s\n
+EOF
+```
+
+**Решение**:
+- Если задержка > 100ms, рассмотрите прокси-сервер ближе к вашему основному серверу
+- Проверьте нагрузку на прокси-сервер: `ssh root@YOUR_PROXY_IP 'docker stats llm-proxy'`
+
+---
+
 ## Часть 3: Тестирование интеграции
 
 ### Тест 1: Проверка разрешения DNS внутри контейнера
 
 ```bash
-# Проверяем n8n
-docker exec localai-n8n-1 getent hosts api.openai.com
+# Проверяем n8n (имя контейнера может быть просто 'n8n')
+docker exec n8n getent hosts api.openai.com
 # Должен вернуть YOUR_PROXY_IP
 
-docker exec localai-n8n-1 getent hosts api.anthropic.com
+docker exec n8n getent hosts api.anthropic.com
 # Должен вернуть YOUR_PROXY_IP
 
 # Проверяем docling
-docker exec localai-docling-1 getent hosts huggingface.co
+docker exec docling getent hosts huggingface.co
+# Должен вернуть YOUR_PROXY_IP
+
+# Проверяем n8n-worker
+docker exec localai-n8n-worker-1 getent hosts api.openai.com
 # Должен вернуть YOUR_PROXY_IP
 ```
 
 ### Тест 2: Проверка доступности API из контейнера
 
+**Примечание**: Не все контейнеры имеют curl. Используйте контейнеры с доступным curl (например, open-webui, docling, ragflow).
+
 ```bash
-# Тест OpenAI из n8n контейнера
-docker exec localai-n8n-1 curl -s -o /dev/null -w "%{http_code}" https://api.openai.com/v1/models \
+# Тест OpenAI (из open-webui, так как n8n не имеет curl)
+docker exec open-webui curl -s -o /dev/null -w "%{http_code}" https://api.openai.com/v1/models \
   -H "Authorization: Bearer YOUR_OPENAI_KEY"
 # Ожидаем 200 или 401 (если ключ неверный, но соединение работает)
 
-# Тест Anthropic из n8n контейнера
-docker exec localai-n8n-1 curl -s -o /dev/null -w "%{http_code}" https://api.anthropic.com/v1/messages \
+# Тест Anthropic (из ragflow)
+docker exec ragflow curl -s -o /dev/null -w "%{http_code}" https://api.anthropic.com/v1/messages \
   -H "x-api-key: YOUR_ANTHROPIC_KEY"
-# Ожидаем 200 или 401
+# Ожидаем 200, 401 или 405 (405 = неправильный HTTP метод, но соединение работает)
 
-# Тест Hugging Face
-docker exec localai-docling-1 curl -s -o /dev/null -w "%{http_code}" https://huggingface.co/api/models
+# Тест Hugging Face (из docling)
+docker exec docling curl -s -o /dev/null -w "%{http_code}" https://huggingface.co
 # Ожидаем 200
+
+# Тест доступности порта прокси
+docker exec n8n nc -zv YOUR_PROXY_IP 443
+# Должен показать: YOUR_PROXY_IP (YOUR_PROXY_IP:443) open
 ```
 
 ### Тест 3: Функциональное тестирование в n8n
@@ -533,8 +956,8 @@ fi
 
 echo "Configuring proxy routing to $PROXY_IP..."
 
-# Список сервисов для настройки
-SERVICES=("n8n" "n8n-worker" "docling" "flowise" "ragflow-server")
+# Список сервисов для настройки (используйте правильные имена из docker-compose.yml!)
+SERVICES=("n8n" "n8n-worker" "docling" "flowise" "ragflow" "open-webui" "lightrag" "letta" "comfyui")
 
 # Создаем docker-compose.override.yml
 cat > docker-compose.override.yml << OVERRIDE_EOF
@@ -574,8 +997,11 @@ echo "  2. Перезапустите сервисы:"
 echo "     docker compose -p localai down"
 echo "     docker compose -p localai up -d"
 echo ""
-echo "  3. Проверьте, что прокси работает:"
-echo "     docker exec localai-n8n-1 getent hosts api.openai.com"
+echo "  3. ВАЖНО: Модифицируйте start_services.py для поддержки override файла!"
+echo "     См. Часть 2, Шаг 4 в proxy-guide-enhanced.md"
+echo ""
+echo "  4. Проверьте, что прокси работает:"
+echo "     docker exec n8n getent hosts api.openai.com"
 echo ""
 EOF
 
@@ -656,7 +1082,180 @@ EOF
 chmod +x scripts/enable_proxy.sh
 ```
 
+### Скрипт для настройки прокси на хост-системе (для Claude Code)
+
+Этот скрипт автоматизирует модификацию `/etc/hosts` для хост-системы:
+
+```bash
+cat > scripts/configure_proxy_host.sh << 'EOF'
+#!/bin/bash
+
+# Скрипт для настройки прокси на хост-системе через /etc/hosts
+# Используется для Claude Code и других приложений, работающих вне Docker
+
+set -euo pipefail
+
+PROXY_IP="${1:-}"
+
+if [ -z "$PROXY_IP" ]; then
+    echo "Usage: $0 <proxy-server-ip>"
+    echo "Example: $0 178.208.89.210"
+    echo ""
+    echo "Этот скрипт модифицирует /etc/hosts для перенаправления AI API через прокси."
+    echo "Требуется root доступ (sudo)."
+    exit 1
+fi
+
+# Проверка валидности IP
+if ! [[ "$PROXY_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "❌ Error: Invalid IP address format"
+    exit 1
+fi
+
+# Проверка root прав
+if [ "$EUID" -ne 0 ]; then
+    echo "❌ Error: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+echo "Настройка прокси на хост-системе..."
+echo "Прокси IP: $PROXY_IP"
+echo ""
+
+# Создаем backup /etc/hosts
+BACKUP_FILE="/etc/hosts.backup.$(date +%Y%m%d_%H%M%S)"
+cp /etc/hosts "$BACKUP_FILE"
+echo "✅ Создан backup: $BACKUP_FILE"
+
+# Проверяем, не добавлены ли уже записи
+if grep -q "# Прокси для AI API" /etc/hosts; then
+    echo "⚠️  Записи прокси уже существуют в /etc/hosts"
+    echo "Удаляю старые записи..."
+    sed -i '/# Прокси для AI API/,+4d' /etc/hosts
+fi
+
+# Добавляем новые записи
+cat >> /etc/hosts << HOSTS_EOF
+
+# Прокси для AI API (добавлено для обхода гео-блокировок)
+$PROXY_IP api.anthropic.com
+$PROXY_IP api.openai.com
+$PROXY_IP huggingface.co
+$PROXY_IP api-inference.huggingface.co
+HOSTS_EOF
+
+echo "✅ Записи добавлены в /etc/hosts"
+echo ""
+
+# Проверяем DNS resolution
+echo "Проверка DNS resolution..."
+for host in api.anthropic.com api.openai.com huggingface.co; do
+    RESOLVED_IP=$(getent hosts "$host" | awk '{print $1}')
+    if [ "$RESOLVED_IP" = "$PROXY_IP" ]; then
+        echo "✅ $host -> $PROXY_IP"
+    else
+        echo "❌ $host -> $RESOLVED_IP (ожидался $PROXY_IP)"
+    fi
+done
+echo ""
+
+# Проверяем доступность прокси-сервера
+echo "Проверка доступности прокси-сервера..."
+if ping -c 2 -W 3 "$PROXY_IP" &>/dev/null; then
+    echo "✅ Прокси-сервер $PROXY_IP доступен (ping успешен)"
+else
+    echo "⚠️  Предупреждение: Прокси-сервер $PROXY_IP не отвечает на ping"
+    echo "   Это может быть нормально, если ping отключен на прокси."
+fi
+
+# Проверяем порт 443
+if command -v nc &>/dev/null; then
+    if nc -zv -w 3 "$PROXY_IP" 443 &>/dev/null; then
+        echo "✅ Порт 443 на прокси-сервере открыт"
+    else
+        echo "❌ Порт 443 на прокси-сервере недоступен"
+        echo "   Убедитесь, что nginx proxy запущен на прокси-сервере."
+    fi
+else
+    echo "⚠️  Утилита 'nc' не установлена, пропускаем проверку порта"
+fi
+
+echo ""
+echo "✅ Настройка завершена!"
+echo ""
+echo "Следующие шаги:"
+echo "  1. Проверьте доступ к API:"
+echo "     curl -I https://api.anthropic.com/v1/messages"
+echo ""
+echo "  2. Запустите Claude Code:"
+echo "     claude"
+echo ""
+echo "Для отката изменений используйте:"
+echo "  sudo cp $BACKUP_FILE /etc/hosts"
+echo ""
+EOF
+
+chmod +x scripts/configure_proxy_host.sh
+```
+
+### Использование скрипта для хост-системы:
+
+```bash
+# Настройка прокси для Claude Code и других приложений на хосте
+sudo bash scripts/configure_proxy_host.sh 178.208.89.210
+
+# Проверка
+getent hosts api.anthropic.com
+
+# Тест доступа к API
+curl -I https://api.anthropic.com/v1/messages
+```
+
+### Скрипт для отключения прокси на хост-системе
+
+```bash
+cat > scripts/disable_proxy_host.sh << 'EOF'
+#!/bin/bash
+
+# Скрипт для отключения прокси на хост-системе
+
+set -euo pipefail
+
+# Проверка root прав
+if [ "$EUID" -ne 0 ]; then
+    echo "❌ Error: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+# Проверяем, есть ли записи прокси
+if ! grep -q "# Прокси для AI API" /etc/hosts; then
+    echo "ℹ️  Записи прокси не найдены в /etc/hosts"
+    exit 0
+fi
+
+# Создаем backup
+BACKUP_FILE="/etc/hosts.backup.$(date +%Y%m%d_%H%M%S)"
+cp /etc/hosts "$BACKUP_FILE"
+echo "✅ Создан backup: $BACKUP_FILE"
+
+# Удаляем записи прокси
+sed -i '/# Прокси для AI API/,+4d' /etc/hosts
+
+echo "✅ Записи прокси удалены из /etc/hosts"
+echo ""
+echo "Проверка DNS resolution:"
+for host in api.anthropic.com api.openai.com; do
+    RESOLVED_IP=$(getent hosts "$host" | awk '{print $1}')
+    echo "  $host -> $RESOLVED_IP"
+done
+EOF
+
+chmod +x scripts/disable_proxy_host.sh
+```
+
 ### Шпаргалка по управлению прокси
+
+#### Для Docker контейнеров (n8n, flowise, etc.)
 
 ```bash
 # === Настройка прокси ===
@@ -687,6 +1286,49 @@ docker exec localai-n8n-1 nc -zv YOUR_PROXY_IP 443
 
 # Проверка /etc/hosts
 docker exec localai-n8n-1 cat /etc/hosts | grep -E "openai|anthropic|huggingface"
+```
+
+#### Для хост-системы (Claude Code, Python скрипты, etc.)
+
+```bash
+# === Настройка прокси ===
+sudo bash scripts/configure_proxy_host.sh 178.208.89.210
+
+# === Отключение прокси ===
+sudo bash scripts/disable_proxy_host.sh
+
+# === Проверка статуса ===
+# Проверка записей в /etc/hosts
+grep -E "anthropic|openai|huggingface" /etc/hosts
+
+# DNS resolution
+getent hosts api.anthropic.com
+getent hosts api.openai.com
+
+# Подключение к прокси
+nc -zv YOUR_PROXY_IP 443
+
+# Тест доступа к API
+curl -I https://api.anthropic.com/v1/messages
+curl -I https://api.openai.com/v1/models
+
+# === Проверка backups ===
+ls -lt /etc/hosts.backup.* | head -5
+```
+
+#### Комбинированная настройка (Docker + хост-система)
+
+```bash
+# Настроить прокси для обоих
+sudo bash scripts/configure_proxy_host.sh 178.208.89.210  # Для хост-системы
+bash scripts/configure_proxy.sh 178.208.89.210             # Для Docker
+
+# Перезапустить Docker сервисы
+docker compose -p localai down && docker compose -p localai up -d
+
+# Проверить оба
+getent hosts api.anthropic.com                             # Хост-система
+docker exec localai-n8n-1 getent hosts api.anthropic.com  # Docker контейнер
 ```
 
 ### Бонус: Pattern для Caddyfile (опционально)
@@ -722,6 +1364,12 @@ import Caddyfile.custom
 ---
 
 ## Устранение неполадок
+
+**Примечание**: Этот раздел содержит troubleshooting для **Docker контейнеров**. Для проблем с **хост-системой** (Claude Code, /etc/hosts), см. [раздел Troubleshooting в Части 2.5](#troubleshooting-для-хост-системы).
+
+---
+
+### Для Docker контейнеров
 
 ### Проблема 1: Connection refused
 
@@ -847,6 +1495,73 @@ events {
     worker_connections 2048;  # или больше
 }
 ```
+
+### Проблема 7: start_services.py не применяет docker-compose.override.yml
+
+**Симптомы**:
+- DNS resolution показывает реальные IP адреса API вместо прокси
+- `docker inspect` показывает `ExtraHosts: []` (пустой массив)
+- Ошибка в логах: `service "ragflow-server" has neither an image nor a build context specified`
+
+**Диагностика**:
+```bash
+# Проверяем, что override файл существует
+ls -la docker-compose.override.yml
+
+# Проверяем ExtraHosts в запущенном контейнере
+docker inspect n8n --format '{{json .HostConfig.ExtraHosts}}' | jq .
+
+# Проверяем DNS resolution
+docker exec n8n getent hosts api.openai.com
+# Если показывает НЕ ваш прокси IP - проблема подтверждена
+```
+
+**Причина**: Скрипт `start_services.py` использует явное указание файла `-f docker-compose.yml`, что отключает автоматическое подхватывание `docker-compose.override.yml`.
+
+**Решение**: См. [Шаг 4: Модификация start_services.py](#шаг-4-модификация-start_servicespy-критично) в Части 2.
+
+### Проблема 8: Неправильное имя сервиса в docker-compose.override.yml
+
+**Симптомы**: Ошибка при запуске:
+```
+service "ragflow-server" has neither an image nor a build context specified: invalid compose project
+```
+
+**Причина**: В `docker-compose.override.yml` указано неправильное имя сервиса, которого нет в базовом `docker-compose.yml`.
+
+**Решение**: Проверьте правильные имена сервисов в базовом файле:
+```bash
+# Найти все имена AI-сервисов
+grep -E "^  [a-z0-9-]+:" docker-compose.yml | grep -E "(ragflow|n8n|docling|flowise|open-webui|lightrag|letta|comfyui)"
+```
+
+**Распространённые ошибки**:
+- ❌ `ragflow-server` → ✅ `ragflow`
+- ❌ `n8n-main` → ✅ `n8n`
+- ❌ `openwebui` → ✅ `open-webui`
+
+### Проблема 9: DNS показывает прокси IP, но соединение не работает
+
+**Симптомы**:
+- `getent hosts api.openai.com` возвращает прокси IP ✅
+- Но запросы к API не проходят или таймаутят
+
+**Диагностика**:
+```bash
+# Проверяем доступность прокси-сервера
+docker exec n8n nc -zv YOUR_PROXY_IP 443
+
+# Проверяем, что прокси контейнер запущен на прокси-сервере
+ssh root@YOUR_PROXY_IP "docker ps | grep llm-proxy"
+
+# Проверяем логи прокси
+ssh root@YOUR_PROXY_IP "docker logs --tail=50 llm-proxy"
+```
+
+**Решение**:
+1. Убедитесь, что прокси-сервер запущен (см. Часть 1)
+2. Проверьте firewall на прокси-сервере: `ufw allow 443/tcp`
+3. Проверьте, что порт 443 слушается: `netstat -tlnp | grep 443`
 
 ---
 
@@ -993,11 +1708,42 @@ docker rm -f llm-proxy
 ✅ Легко масштабируется
 ✅ Не требует изменений в приложениях
 
+### Настроенные сервисы в docker-compose.override.yml:
+
+По умолчанию прокси настроен для следующих AI-сервисов:
+- ✅ **n8n** (основной контейнер)
+- ✅ **n8n-worker** (воркеры для обработки workflow)
+- ✅ **docling** (обработка документов)
+- ✅ **flowise** (AI agent builder)
+- ✅ **ragflow** (RAG система)
+- ✅ **open-webui** (веб-интерфейс для LLM)
+- ✅ **lightrag** (легковесная RAG система)
+- ✅ **letta** (memory system для LLM)
+- ✅ **comfyui** (AI image generation)
+
+Если в вашем проекте используются другие AI-сервисы, добавьте их аналогичным образом в `docker-compose.override.yml`.
+
 ### Следующие шаги:
 1. Настройте прокси-сервер (Часть 1)
-2. Создайте docker-compose.override.yml (Часть 2)
-3. Протестируйте интеграцию (Часть 3)
-4. Используйте скрипты автоматизации (Часть 4)
+2. Создайте docker-compose.override.yml с правильными именами сервисов (Часть 2)
+3. **КРИТИЧНО**: Модифицируйте start_services.py для поддержки override файла (Часть 2, Шаг 4)
+4. Протестируйте интеграцию (Часть 3)
+5. Используйте скрипты автоматизации для хост-системы (Часть 4)
+
+### Важные замечания:
+
+⚠️ **Критичные моменты**:
+1. **Имена сервисов**: Используйте `ragflow`, а не `ragflow-server`
+2. **start_services.py**: ОБЯЗАТЕЛЬНО модифицировать для поддержки override файла
+3. **Права доступа**: Файл `.env` принадлежит root, используйте `sudo` для команд docker compose
+4. **Контейнер curl**: Не все контейнеры имеют curl (например, n8n). Для тестов используйте open-webui, docling или ragflow
+
+🔧 **После каждого изменения docker-compose.override.yml**:
+```bash
+sudo python3 start_services.py  # если модифицировали скрипт
+# ИЛИ
+sudo docker compose -p localai -f docker-compose.yml -f docker-compose.override.yml up -d --force-recreate
+```
 
 ### Полезные ссылки:
 - [n8n-installer README](README.md)
