@@ -95,6 +95,19 @@ docker exec n8n getent hosts api.anthropic.com
 
 ### Для Claude Code на хост-системе (без Docker):
 
+**Для WSL (Windows Subsystem for Linux):**
+```powershell
+# В Windows: Откройте как Администратор
+notepad C:\Windows\System32\drivers\etc\hosts
+
+# Добавьте строки:
+# YOUR_PROXY_IP api.anthropic.com
+# YOUR_PROXY_IP api.openai.com
+# YOUR_PROXY_IP huggingface.co
+# YOUR_PROXY_IP api-inference.huggingface.co
+```
+
+**Для обычного Ubuntu/Linux:**
 ```bash
 # На основном сервере добавить в /etc/hosts
 sudo bash -c "echo 'YOUR_PROXY_IP api.anthropic.com' >> /etc/hosts"
@@ -238,7 +251,7 @@ netstat -tlnp | grep 443
 # Открываем порт 443
 ufw allow 443/tcp
 
-# Опционально: Ограничиваем доступ только с IP основного сервера
+# Ограничиваем доступ только с IP основного сервера
 ufw allow from YOUR_MAIN_SERVER_IP to any port 443 proto tcp
 
 # Проверяем статус
@@ -713,6 +726,11 @@ sudo cp /etc/hosts.backup /etc/hosts
 - ✅ **Работает для**: Всех приложений на хост-системе (включая Claude Code, curl, Python скрипты)
 - ❌ **НЕ работает для**: Docker контейнеров (они имеют свой собственный /etc/hosts)
 
+**⚠️ СПЕЦИАЛЬНО ДЛЯ WSL**:
+- ❌ Изменения в `/etc/hosts` внутри WSL НЕ сохраняются при перезапуске
+- ✅ **Используйте Windows hosts файл**: `C:\Windows\System32\drivers\etc\hosts` (требуются права администратора)
+- ✅ Преимущество: работает для всех WSL дистрибутивов + приложений Windows одновременно
+
 #### 2. Совместимость с Docker
 
 Если у вас **одновременно** работают:
@@ -761,12 +779,19 @@ sudo cp /etc/hosts /etc/hosts.backup.$(date +%Y%m%d_%H%M%S)
 
 | Метод | Область действия | Сложность | Постоянство |
 |-------|------------------|-----------|-------------|
-| `/etc/hosts` | Вся хост-система | Низкая | Постоянное (до изменения файла) |
+| `/etc/hosts` (Linux) | Вся хост-система | Низкая | Постоянное (до изменения файла) |
+| `C:\Windows\...\hosts` (WSL) | Вся хост-система + WSL | Низкая | **Постоянное** (переживает wsl --shutdown) ✅ |
 | `docker-compose.override.yml` | Только Docker контейнеры | Низкая | Постоянное (пока существует файл) |
 | `HTTPS_PROXY` env var | Только приложения с поддержкой прокси | Низкая | Сессия (пока экспортировано) |
 | VPN/WireGuard | Вся система + сеть | Высокая | Постоянное (пока запущен VPN) |
 
-Для Claude Code на хост-системе **оптимальный выбор** - это `/etc/hosts`, так как:
+**⚠️ Важно для WSL**: Изменения в `/etc/hosts` внутри WSL теряются при перезапуске. Используйте Windows hosts файл (`C:\Windows\System32\drivers\etc\hosts`) для постоянной настройки.
+
+Для Claude Code на хост-системе **оптимальный выбор**:
+- **WSL**: Windows hosts файл (`C:\Windows\System32\drivers\etc\hosts`)
+- **Linux**: `/etc/hosts`
+
+Причины:
 - ✅ Работает прозрачно для всех приложений
 - ✅ Не требует настройки каждого приложения отдельно
 - ✅ Легко включать/отключать
@@ -806,9 +831,80 @@ sudo nano /etc/hosts
 sudo bash -c "echo 'YOUR_PROXY_IP api.anthropic.com' >> /etc/hosts"
 ```
 
-#### Проблема: Изменения в /etc/hosts не сохраняются после перезагрузки
+#### Проблема: Изменения в /etc/hosts не сохраняются после перезагрузки (WSL)
 
-**Диагностика**:
+**⚠️ ВАЖНО ДЛЯ WSL**: В Windows Subsystem for Linux файл `/etc/hosts` автоматически регенерируется при каждом запуске WSL (`wsl --shutdown` или перезагрузка Windows). Изменения в `/etc/hosts` внутри WSL теряются.
+
+**Решение для WSL: Использовать Windows hosts файл** ✅ **ПРОВЕРЕНО**
+
+Вместо изменения `/etc/hosts` в WSL, измените hosts файл в Windows. WSL автоматически использует Windows hosts файл.
+
+**Шаг 1: Откройте Windows hosts файл как Администратор**
+
+```powershell
+# В Windows PowerShell (запустите как Администратор):
+notepad C:\Windows\System32\drivers\etc\hosts
+```
+
+Или используйте любой текстовый редактор с правами администратора.
+
+**Шаг 2: Добавьте записи прокси**
+
+Добавьте следующие строки в конец файла:
+
+```
+# Прокси для AI API (для WSL и Windows)
+178.208.89.210 api.anthropic.com
+178.208.89.210 api.openai.com
+178.208.89.210 huggingface.co
+178.208.89.210 api-inference.huggingface.co
+```
+
+Замените `178.208.89.210` на IP адрес вашего прокси-сервера.
+
+**Шаг 3: Сохраните файл**
+
+Сохраните изменения в Notepad (требуются права администратора).
+
+**Шаг 4: Проверка в WSL**
+
+```bash
+# В WSL терминале
+getent hosts api.anthropic.com
+# Должен показать ваш прокси IP
+
+getent hosts api.openai.com
+# Должен показать ваш прокси IP
+
+# Тест соединения
+ping -c 3 178.208.89.210
+
+# Тест порта
+nc -zv 178.208.89.210 443
+```
+
+**Преимущества этого метода**:
+- ✅ Изменения постоянны (переживают `wsl --shutdown` и перезагрузку)
+- ✅ Работает для всех WSL дистрибутивов одновременно
+- ✅ Работает также для приложений в Windows
+- ✅ Не требует настройки wsl.conf или boot скриптов
+
+**Отключение прокси (если нужно)**:
+
+1. Откройте `C:\Windows\System32\drivers\etc\hosts` как Администратор
+2. Закомментируйте или удалите строки с прокси:
+```
+# 178.208.89.210 api.anthropic.com
+# 178.208.89.210 api.openai.com
+# 178.208.89.210 huggingface.co
+# 178.208.89.210 api-inference.huggingface.co
+```
+3. Сохраните файл
+
+---
+
+**Диагностика** (для обычного Ubuntu, НЕ WSL):
+
 ```bash
 # Проверьте, не используется ли cloud-init или netplan для управления /etc/hosts
 ls -l /etc/cloud/templates/hosts.*
@@ -1290,6 +1386,39 @@ docker exec localai-n8n-1 cat /etc/hosts | grep -E "openai|anthropic|huggingface
 
 #### Для хост-системы (Claude Code, Python скрипты, etc.)
 
+**Для WSL (Windows Subsystem for Linux):**
+
+```powershell
+# === Настройка прокси (в Windows) ===
+# 1. Откройте PowerShell как Администратор
+# 2. Откройте hosts файл:
+notepad C:\Windows\System32\drivers\etc\hosts
+
+# 3. Добавьте строки:
+# 178.208.89.210 api.anthropic.com
+# 178.208.89.210 api.openai.com
+# 178.208.89.210 huggingface.co
+# 178.208.89.210 api-inference.huggingface.co
+
+# 4. Сохраните и закройте
+```
+
+```bash
+# === Проверка в WSL терминале ===
+# DNS resolution
+getent hosts api.anthropic.com
+getent hosts api.openai.com
+
+# Подключение к прокси
+nc -zv 178.208.89.210 443
+
+# Тест доступа к API
+curl -I https://api.anthropic.com/v1/messages
+curl -I https://api.openai.com/v1/models
+```
+
+**Для обычного Linux/Ubuntu:**
+
 ```bash
 # === Настройка прокси ===
 sudo bash scripts/configure_proxy_host.sh 178.208.89.210
@@ -1317,6 +1446,29 @@ ls -lt /etc/hosts.backup.* | head -5
 ```
 
 #### Комбинированная настройка (Docker + хост-система)
+
+**Для WSL:**
+
+```powershell
+# Шаг 1: Настроить прокси для Windows/WSL хост-системы
+# В PowerShell как Администратор:
+notepad C:\Windows\System32\drivers\etc\hosts
+# Добавьте: 178.208.89.210 api.anthropic.com api.openai.com huggingface.co api-inference.huggingface.co
+```
+
+```bash
+# Шаг 2: Настроить прокси для Docker контейнеров (в WSL терминале)
+bash scripts/configure_proxy.sh 178.208.89.210
+
+# Шаг 3: Перезапустить Docker сервисы
+docker compose -p localai down && docker compose -p localai up -d
+
+# Шаг 4: Проверить оба
+getent hosts api.anthropic.com                             # Хост-система/WSL
+docker exec localai-n8n-1 getent hosts api.anthropic.com  # Docker контейнер
+```
+
+**Для обычного Linux:**
 
 ```bash
 # Настроить прокси для обоих
