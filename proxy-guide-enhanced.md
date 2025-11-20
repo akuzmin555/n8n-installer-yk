@@ -299,10 +299,10 @@ curl -i https://huggingface.co/api/models
   sudo docker restart llm-proxy
 
   # 5. Проверьте логи
-  docker logs llm-proxy --tail=20
+  sudo docker logs llm-proxy --tail=20
 
   # 6. Проверьте, что nginx работает
-  docker ps | grep llm-proxy
+  sudo docker ps | grep llm-proxy
 
   Что добавлено в конфиг:
   - cdn-lfs.huggingface.co - основной CDN для Git LFS файлов
