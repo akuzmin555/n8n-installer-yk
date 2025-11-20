@@ -456,7 +456,7 @@ services:
       - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
       - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
       - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
-    # # # # # # cap_drop: - ALL  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run
+    # # # # # # # # # cap_drop: - ALL  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run  # Temporarily commented out for first run
     cap_add:
       - CHOWN
       - SETGID
@@ -1016,7 +1016,7 @@ services:
       - SUMMARY_LANGUAGE=English
       - CHUNK_SIZE=1200
       - CHUNK_OVERLAP_SIZE=100
-      - SUMMARY_MAX_TOKENS=500
+      - SUMMARY_MAX_TOKENS=1000
       - SUMMARY_CONTEXT_SIZE=10000
 
       # Storage Configuration (Flexible - uses PostgreSQL/Neo4j if available)
@@ -1057,7 +1057,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -qO- http://localhost:9621/health > /dev/null 2>&1 || exit 1",
+          "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:9621/health\")' || exit 1",
         ]
       interval: 30s
       timeout: 10s
