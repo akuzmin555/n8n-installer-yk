@@ -280,6 +280,36 @@ curl -i -X POST https://api.anthropic.com/v1/messages \
 curl -i https://huggingface.co/api/models
 ```
 
+### Шаг 8: Если надо добавить хосты в proxy (обновление Proxy конфига)
+```bash
+Инструкции для обновления прокси-сервера (91.218.140.191):
+
+  # 1. Подключитесь к прокси-серверу
+  ssh root@91.218.140.191
+
+  # 2. Создайте backup старого конфига
+  cp /root/llm-proxy/nginx.conf /root/llm-proxy/nginx.conf.backup
+
+  # 3. Обновите конфиг (вставьте содержимое из nginx-proxy-updated.conf)
+  nano /root/llm-proxy/nginx.conf
+  # Или скопируйте файл с основного сервера:
+  # scp /home/ph-pom-gpu/n8n-installer-yk/nginx-proxy-updated.conf root@91.218.140.191:/root/llm-proxy/nginx.conf
+
+  # 4. Перезапустите nginx контейнер
+  sudo docker restart llm-proxy
+
+  # 5. Проверьте логи
+  docker logs llm-proxy --tail=20
+
+  # 6. Проверьте, что nginx работает
+  docker ps | grep llm-proxy
+
+  Что добавлено в конфиг:
+  - cdn-lfs.huggingface.co - основной CDN для Git LFS файлов
+  - cdn-lfs-us-1.huggingface.co - региональный CDN (US)
+  - cdn.huggingface.co - общий CDN
+```
+
 ---
 
 ## Часть 2: Настройка n8n-installer проекта

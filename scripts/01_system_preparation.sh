@@ -32,6 +32,20 @@ ufw status
 
 # Configuring Fail2Ban
 log_info "Enabling brute-force protection (Fail2Ban)..."
+
+# Configure Fail2Ban for custom SSH port 2247
+log_info "Configuring Fail2Ban for SSH on port 2247..."
+cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
+[sshd]
+enabled = true
+port = 2247
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+maxretry = 5
+bantime = 3600
+findtime = 600
+EOF
+
 systemctl enable fail2ban
 sleep 1
 systemctl start fail2ban
