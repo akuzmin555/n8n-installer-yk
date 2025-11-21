@@ -163,6 +163,8 @@ apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-compos
 # Создаем директорию для конфигурации
 mkdir -p /root/llm-proxy && cd /root/llm-proxy
 
+Полная версия конфигурационного файла тут nginx-proxy-updated.conf
+
 # Создаем конфигурационный файл
 cat > nginx.conf << 'EOF'
 user nginx;
@@ -180,8 +182,24 @@ stream {
         server api.openai.com:443;
     }
 
+    upstream web_openai_api {
+        server openai.com:443;
+    }
+
+    upstream platform_openai {
+        server platform.openai.com:443;
+    }
+
     upstream anthropic_api {
         server api.anthropic.com:443;
+    }
+
+    upstream console_anthropic_com {
+        server console.anthropic.com:443;
+    }
+
+    upstream web_anthropic_com {
+        server anthropic.com:443;
     }
 
     upstream huggingface_api {
@@ -192,13 +210,91 @@ stream {
         server api-inference.huggingface.co:443;
     }
 
+    upstream chatgpt_web {
+          server chatgpt.com:443;
+    }
+
+    upstream claude_web {
+          server claude.ai:443;
+    }
+    
+    upstream claude_web_com {
+          server claude.com:443;
+    }
+    
+    upstream ghcr_io {
+          server ghcr.io:443;
+    }
+    
+    upstream sora_web {
+          server sora.com:443;
+    }
+    
+    upstream sora_chatgpt_web {
+          server sora.chatgpt.com:443;
+    }
+
+    # Xet Storage CDN узлы
+    upstream xethub_cas_bridge {
+          server cas-bridge.xethub.hf.co:443;
+    }
+    
+    upstream xethub_cas_bridge_direct {
+          server cas-bridge-direct.xethub.hf.co:443;
+    }
+    
+    upstream xethub_cas_server {
+          server cas-server.xethub.hf.co:443;
+    }
+    
+    upstream xethub_transfer {
+          server transfer.xethub.hf.co:443;
+    }
+
+    # HuggingFace CDN
+    upstream cdn_lfs_hf {
+          server cdn-lfs.hf.co:443;
+    }
+    
+    upstream cdn_lfs_us_hf {
+          server cdn-lfs-us-1.hf.co:443;
+    }
+    
+    upstream cdn_lfs_eu_hf {
+          server cdn-lfs-eu-1.hf.co:443;
+    }
+
     # Карта для выбора upstream по SNI hostname
     map $ssl_preread_server_name $upstream {
-        api.openai.com                  openai_api;
-        api.anthropic.com               anthropic_api;
-        huggingface.co                  huggingface_api;
-        api-inference.huggingface.co    huggingface_inference;
-        default                         openai_api;
+        api.openai.com                    openai_api;
+        openai.com                        web_openai_api;
+        platform.openai.com               platform_openai;
+        api.anthropic.com                 anthropic_api;
+        console.anthropic.com             console_anthropic_com;
+        anthropic.com                     web_anthropic_com;
+        
+        huggingface.co                    huggingface_api;
+        api-inference.huggingface.co      huggingface_inference;
+        
+        chatgpt.com                       chatgpt_web;
+        claude.ai                         claude_web;
+        claude.com                        claude_web_com;
+        ghcr.io                           ghcr_io;
+        sora.com                          sora_web;
+        sora.chatgpt.com                  sora_chatgpt_web;
+        
+        # Xet Storage для Docling
+        cas-bridge.xethub.hf.co           xethub_cas_bridge;
+        cas-bridge-direct.xethub.hf.co    xethub_cas_bridge_direct;
+        cas-server.xethub.hf.co           xethub_cas_server;
+        transfer.xethub.hf.co             xethub_transfer;
+        
+        # HuggingFace CDN
+        cdn-lfs.hf.co                     cdn_lfs_hf;
+        cdn-lfs-us-1.hf.co                cdn_lfs_us_hf;
+        cdn-lfs-eu-1.hf.co                cdn_lfs_eu_hf;
+        
+        default                           openai_api;
     }
 
     # Логирование для отладки
@@ -291,7 +387,7 @@ curl -i https://huggingface.co/api/models
   cp /root/llm-proxy/nginx.conf /root/llm-proxy/nginx.conf.backup
 
   # 3. Обновите конфиг (вставьте содержимое из nginx-proxy-updated.conf)
-  nano /root/llm-proxy/nginx.conf
+  sudo nano /root/llm-proxy/nginx.conf
   # Или скопируйте файл с основного сервера:
   # scp /home/ph-pom-gpu/n8n-installer-yk/nginx-proxy-updated.conf root@91.218.140.191:/root/llm-proxy/nginx.conf
 
