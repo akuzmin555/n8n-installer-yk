@@ -13,3 +13,6 @@ ragflow/data/
 ragflow/docker/
 volumes/
 docker-compose.override.yml
+venv/
+*.pyc
+__pycache__/
