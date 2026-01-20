@@ -1,4 +1,20 @@
 #!/bin/bash
+# =============================================================================
+# install.sh - Main installation orchestrator for n8n-install
+# =============================================================================
+# This script runs the complete installation process by sequentially executing
+# 8 installation steps:
+#   1. System Preparation - updates packages, installs utilities, configures firewall
+#   2. Docker Installation - installs Docker and Docker Compose
+#   3. Secret Generation - creates .env file with secure passwords and secrets
+#   4. Service Wizard - interactive service selection using whiptail
+#   5. Service Configuration - prompts for API keys and service-specific settings
+#   6. Service Launch - starts all selected services via Docker Compose
+#   7. Final Report - displays credentials and access URLs
+#   8. Fix Permissions - ensures correct file ownership for the invoking user
+#
+# Usage: sudo bash scripts/install.sh
+# =============================================================================
 
 set -e
 
@@ -28,8 +44,22 @@ if [[ "$current_path" == *"/n8n-install/n8n-install" ]]; then
     fi
 fi
 
-# Get the directory where this script is located (which is the scripts directory)
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# Initialize paths using utils.sh helper
+init_paths
+
+# Source telemetry functions
+source "$SCRIPT_DIR/telemetry.sh"
+
+# Setup error telemetry trap for tracking failures
+setup_error_telemetry_trap
+
+# Generate installation ID for telemetry correlation (before .env exists)
+# This ID will be saved to .env by 03_generate_secrets.sh
+INSTALLATION_ID=$(get_installation_id)
+export INSTALLATION_ID
+
+# Send telemetry: installation started
+send_telemetry "install_start"
 
 # Check if all required scripts exist and are executable in the current directory
 required_scripts=(
@@ -40,6 +70,7 @@ required_scripts=(
     "05_configure_services.sh"
     "06_run_services.sh"
     "07_final_report.sh"
+    "08_fix_permissions.sh"
 )
 
 missing_scripts=()
@@ -82,42 +113,70 @@ fi
 
 # Run installation steps sequentially using their full paths
 
-log_info "========== STEP 1: System Preparation =========="
+show_step 1 8 "System Preparation"
+set_telemetry_stage "system_prep"
 bash "$SCRIPT_DIR/01_system_preparation.sh" || { log_error "System Preparation failed"; exit 1; }
 log_success "System preparation complete!"
 
-log_info "========== STEP 2: Installing Docker =========="
+show_step 2 8 "Installing Docker"
+set_telemetry_stage "docker_install"
 bash "$SCRIPT_DIR/02_install_docker.sh" || { log_error "Docker Installation failed"; exit 1; }
 log_success "Docker installation complete!"
 
-log_info "========== STEP 3: Generating Secrets and Configuration =========="
+show_step 3 8 "Generating Secrets and Configuration"
+set_telemetry_stage "secrets_gen"
 bash "$SCRIPT_DIR/03_generate_secrets.sh" || { log_error "Secret/Config Generation failed"; exit 1; }
 log_success "Secret/Config Generation complete!"
 
-log_info "========== STEP 4: Running Service Selection Wizard =========="
+show_step 4 8 "Running Service Selection Wizard"
+set_telemetry_stage "wizard"
 bash "$SCRIPT_DIR/04_wizard.sh" || { log_error "Service Selection Wizard failed"; exit 1; }
 log_success "Service Selection Wizard complete!"
 
-log_info "========== STEP 5: Configure Services =========="
+show_step 5 8 "Configure Services"
+set_telemetry_stage "configure"
 bash "$SCRIPT_DIR/05_configure_services.sh" || { log_error "Configure Services failed"; exit 1; }
 log_success "Configure Services complete!"
 
-log_info "========== STEP 6: Running Services =========="
+show_step 6 8 "Running Services"
+set_telemetry_stage "db_init"
+# Start PostgreSQL first to initialize databases before other services
+log_info "Starting PostgreSQL..."
+docker compose -p localai -f docker-compose.yml up -d postgres || { log_error "Failed to start PostgreSQL"; exit 1; }
+
+# Initialize PostgreSQL databases for services (creates if not exist)
+# This must run BEFORE other services that depend on these databases
+source "$SCRIPT_DIR/databases.sh"
+init_all_databases || { log_warning "Database initialization had issues, but continuing..."; }
+
+# Now start all services (postgres is already running)
+set_telemetry_stage "services_start"
 bash "$SCRIPT_DIR/06_run_services.sh" || { log_error "Running Services failed"; exit 1; }
 log_success "Running Services complete!"
 
-log_info "========== STEP 7: Generating Final Report =========="
+show_step 7 8 "Generating Final Report"
+set_telemetry_stage "final_report"
 # --- Installation Summary ---
-log_info "Installation Summary. The following steps were performed by the scripts:"
-log_success "- System updated and basic utilities installed"
-log_success "- Firewall (UFW) configured and enabled"
-log_success "- Fail2Ban activated for brute-force protection"
-log_success "- Automatic security updates enabled"
-log_success "- Docker and Docker Compose installed"
-log_success "- '.env' generated with secure passwords and secrets"
-log_success "- Services launched via Docker Compose"
+log_info "Installation Summary:"
+echo -e "  ${GREEN}*${NC} System updated and basic utilities installed"
+echo -e "  ${GREEN}*${NC} Firewall (UFW) configured and enabled"
+echo -e "  ${GREEN}*${NC} Fail2Ban activated for brute-force protection"
+echo -e "  ${GREEN}*${NC} Automatic security updates enabled"
+echo -e "  ${GREEN}*${NC} Docker and Docker Compose installed"
+echo -e "  ${GREEN}*${NC} '.env' generated with secure passwords and secrets"
+echo -e "  ${GREEN}*${NC} Services launched via Docker Compose"
 
 bash "$SCRIPT_DIR/07_final_report.sh" || { log_error "Final Report Generation failed"; exit 1; }
-log_success "Final Report Generation complete!"
+log_success "Final Report generated!"
 
-exit 0 
+show_step 8 8 "Fixing File Permissions"
+set_telemetry_stage "fix_perms"
+bash "$SCRIPT_DIR/08_fix_permissions.sh" || { log_error "Fix Permissions failed"; exit 1; }
+log_success "File permissions fixed!"
+
+log_success "Installation complete!"
+
+# Send telemetry: installation completed with selected services
+send_telemetry "install_complete" "$(read_env_var COMPOSE_PROFILES)"
+
+exit 0

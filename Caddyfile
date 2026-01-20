@@ -81,9 +81,17 @@
     reverse_proxy postiz:5000
 }
 
-# Postgresus
-{$POSTGRESUS_HOSTNAME} {
-    reverse_proxy postgresus:4005
+# Temporal UI (workflow orchestration for Postiz)
+{$TEMPORAL_UI_HOSTNAME} {
+    basic_auth {
+        {$TEMPORAL_UI_USERNAME} {$TEMPORAL_UI_PASSWORD_HASH}
+    }
+    reverse_proxy temporal-ui:8080
+}
+
+# Databasus
+{$DATABASUS_HOSTNAME} {
+    reverse_proxy databasus:4005
 }
 
 # Letta
@@ -132,6 +140,11 @@ https://{$NEO4J_HOSTNAME}:7687 {
     reverse_proxy neo4j:7687
 }
 
+# NocoDB
+{$NOCODB_HOSTNAME} {
+    reverse_proxy nocodb:8080
+}
+
 # PaddleOCR (PaddleX Basic Serving)
 {$PADDLEOCR_HOSTNAME} {
     basic_auth {
@@ -146,6 +159,27 @@ https://{$NEO4J_HOSTNAME}:7687 {
         {$DOCLING_USERNAME} {$DOCLING_PASSWORD_HASH}
     }
     reverse_proxy docling:5001
+}
+
+# Welcome Page (Post-install dashboard)
+# HTTP block for Cloudflare Tunnel access (prevents redirect loop)
+http://{$WELCOME_HOSTNAME} {
+    basic_auth {
+        {$WELCOME_USERNAME} {$WELCOME_PASSWORD_HASH}
+    }
+    root * /srv/welcome
+    file_server
+    try_files {path} /index.html
+}
+
+# HTTPS block for direct access
+{$WELCOME_HOSTNAME} {
+    basic_auth {
+        {$WELCOME_USERNAME} {$WELCOME_PASSWORD_HASH}
+    }
+    root * /srv/welcome
+    file_server
+    try_files {path} /index.html
 }
 
 import /etc/caddy/addons/*.conf

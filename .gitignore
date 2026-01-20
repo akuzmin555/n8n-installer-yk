@@ -5,16 +5,18 @@
 neo4j/
 searxng/settings.yml
 searxng/uwsgi*
-shared-backup/
 shared/
-smolvlm_backup/
-docling_full_backup/
-docl_cuda126_190_backup/
 supabase/
 dify/
-ragflow/data/
-ragflow/docker/
 volumes/
-venv/
-*.pyc
-__pycache__/
+docker-compose.n8n-workers.yml
+welcome/data.json
+welcome/changelog.json
+
+# Custom TLS certificates
+certs/*
+!certs/.gitkeep
+
+# Custom Caddy addons (user configurations)
+caddy-addon/*.conf
+!caddy-addon/*.example

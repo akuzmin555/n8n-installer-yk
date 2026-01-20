@@ -463,5 +463,11 @@
   },
   "name": "Send a random recipe once a day to Telegram",
   "active": false,
+<<<<<<< HEAD
   "id": "hzG3DM9BCVEQXXZ2"
 }
+=======
+  "id": "hzG3DM9BCVEQXXZ2",
+  "versionId": "a63e2960-1733-49df-968d-a7d4bcba75f9"
+}
+>>>>>>> upstream/main

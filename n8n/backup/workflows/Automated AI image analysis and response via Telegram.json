@@ -262,5 +262,11 @@
   },
   "name": "Automated AI image analysis and response via Telegram",
   "active": false,
+<<<<<<< HEAD
   "id": "0jqtMZKzpEsUsYlm"
 }
+=======
+  "id": "0jqtMZKzpEsUsYlm",
+  "versionId": "0577e412-5a8c-41cf-a821-af35d143d579"
+}
+>>>>>>> upstream/main

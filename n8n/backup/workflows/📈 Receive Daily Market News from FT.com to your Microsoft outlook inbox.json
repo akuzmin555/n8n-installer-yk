@@ -262,5 +262,11 @@
   },
   "name": "📈 Receive Daily Market News from FT.com to your Microsoft outlook inbox",
   "active": false,
+<<<<<<< HEAD
   "id": "Ks1sbvt9hufhkJfL"
 }
+=======
+  "id": "Ks1sbvt9hufhkJfL",
+  "versionId": "eeab65f9-2c9c-476a-912b-84721413a4bc"
+}
+>>>>>>> upstream/main

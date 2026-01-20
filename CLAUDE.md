@@ -15,87 +15,154 @@ This is **n8n-install**, a Docker Compose-based installer that provides a compre
 
 ### Key Files
 
+- `Makefile`: Common commands (install, update, logs, etc.)
 - `docker-compose.yml`: Service definitions with profiles
 - `Caddyfile`: Reverse proxy configuration with automatic HTTPS
 - `.env`: Generated secrets and configuration (from `.env.example`)
-- `scripts/install.sh`: Main installation orchestrator
-- `scripts/04_wizard.sh`: Interactive service selection using whiptail
+- `scripts/install.sh`: Main installation orchestrator (runs numbered scripts 01-08 in sequence)
+- `scripts/utils.sh`: Shared utility functions (sourced by all scripts via `source "$(dirname "$0")/utils.sh" && init_paths`)
+- `scripts/01_system_preparation.sh`: System updates, firewall, security hardening
+- `scripts/02_install_docker.sh`: Docker and Docker Compose installation
+- `scripts/git.sh`: Git utilities (sync with origin, branch detection, configuration)
 - `scripts/03_generate_secrets.sh`: Secret generation and bcrypt hashing
+- `scripts/04_wizard.sh`: Interactive service selection using whiptail
+- `scripts/05_configure_services.sh`: Service-specific configuration logic
+- `scripts/databases.sh`: Creates isolated PostgreSQL databases for services (library)
+- `scripts/telemetry.sh`: Anonymous telemetry functions (Scarf integration)
+- `scripts/06_run_services.sh`: Starts Docker Compose stack
 - `scripts/07_final_report.sh`: Post-install credential summary
+- `scripts/08_fix_permissions.sh`: Fixes file ownership for non-root access
+- `scripts/generate_n8n_workers.sh`: Generates dynamic worker/runner compose file
+- `scripts/update.sh`: Update orchestrator (syncs with origin and updates images)
+- `scripts/update_preview.sh`: Preview available updates without applying (dry-run)
+- `scripts/doctor.sh`: System diagnostics (DNS, SSL, containers, disk, memory)
+- `scripts/apply_update.sh`: Applies updates after git sync
+- `scripts/docker_cleanup.sh`: Removes unused Docker resources (used by `make clean`)
+- `scripts/download_top_workflows.sh`: Downloads community n8n workflows
+- `scripts/import_workflows.sh`: Imports workflows from `n8n/backup/workflows/` into n8n (used by `make import`)
+
+**Project Name**: All docker-compose commands use `-p localai` (defined in Makefile as `PROJECT_NAME := localai`).
+
+### Installation Flow
+
+`scripts/install.sh` orchestrates the installation by running numbered scripts in sequence:
+
+1. `01_system_preparation.sh` - System updates, firewall, security hardening
+2. `02_install_docker.sh` - Docker and Docker Compose installation
+3. `03_generate_secrets.sh` - Generate passwords, API keys, bcrypt hashes
+4. `04_wizard.sh` - Interactive service selection (whiptail UI)
+5. `05_configure_services.sh` - Service-specific configuration
+6. `06_run_services.sh` - Start Docker Compose stack
+7. `07_final_report.sh` - Display credentials and URLs
+8. `08_fix_permissions.sh` - Fix file ownership for non-root access
+
+The update flow (`scripts/update.sh`) similarly orchestrates: git fetch + reset → service selection → `apply_update.sh` → restart.
 
 ## Common Development Commands
 
-### Installation and Updates
+### Makefile Commands
 
 ```bash
-# Full installation (run from project root)
-sudo bash ./scripts/install.sh
+make install           # Full installation (runs scripts/install.sh)
+make update            # Update system and services (resets to origin)
+make update-preview    # Preview available updates (dry-run)
+make git-pull          # Update for forks (merges from upstream/main)
+make clean             # Remove unused Docker resources (preserves data)
+make clean-all         # Remove ALL Docker resources including data (DANGEROUS)
 
-# Update to latest versions and pull new images
-sudo bash ./scripts/update.sh
+make logs              # View logs (all services)
+make logs s=<service>  # View logs for specific service
+make status            # Show container status
+make monitor           # Live CPU/memory monitoring (docker stats)
+make restart           # Restart all services
+make stop              # Stop all services
+make start             # Start all services
+make show-restarts     # Show restart count per container
+make doctor            # Run system diagnostics (DNS, SSL, containers, disk, memory)
+make import            # Import n8n workflows from backup
+make import n=10       # Import first N workflows only
+make setup-tls         # Configure custom TLS certificates
 
-# Re-run service selection wizard (for adding/removing services)
-sudo bash ./scripts/04_wizard.sh
+make switch-beta       # Switch to develop branch and update
+make switch-stable     # Switch to main branch and update
+make help              # Show all available commands
 ```
 
-### Docker Compose Operations
-
-```bash
-# Start all enabled profile services
-docker compose -p localai up -d
-
-# View logs for a specific service
-docker compose -p localai logs -f --tail=200 <service-name> | cat
-
-# Recreate a single service (e.g., after config changes)
-docker compose -p localai up -d --no-deps --force-recreate <service-name>
-
-# Stop all services
-docker compose -p localai down
-
-# Remove unused Docker resources
-sudo bash ./scripts/docker_cleanup.sh
-```
-
-### Development and Testing
-
-```bash
-# Regenerate secrets after modifying .env.example
-bash ./scripts/03_generate_secrets.sh
-
-# Check current active profiles
-grep COMPOSE_PROFILES .env
-
-# View Caddy logs for reverse proxy issues
-docker compose -p localai logs -f caddy
-
-# Test n8n worker scaling
-# Edit N8N_WORKER_COUNT in .env, then:
-docker compose -p localai up -d --scale n8n-worker=<count>
-```
 
 ## Adding a New Service
 
-Follow this workflow when adding a new optional service (refer to `.cursor/rules/add-new-service.mdc` for complete details):
+Follow this workflow when adding a new optional service (refer to `.claude/commands/add-new-service.md` for complete details):
 
 1. **docker-compose.yml**: Add service with `profiles: ["myservice"]`, `restart: unless-stopped`. Do NOT expose ports.
 2. **Caddyfile**: Add reverse proxy block using `{$MYSERVICE_HOSTNAME}`. Consider if basic auth is needed.
 3. **.env.example**: Add `MYSERVICE_HOSTNAME=myservice.yourdomain.com` and credentials if using basic auth.
 4. **scripts/03_generate_secrets.sh**: Generate passwords and bcrypt hashes. Add to `VARS_TO_GENERATE` map.
 5. **scripts/04_wizard.sh**: Add service to `base_services_data` array for wizard selection.
-6. **scripts/07_final_report.sh**: Add service URL and credentials output using `is_profile_active "myservice"`.
-7. **README.md**: Add one-line description under "What's Included".
+6. **scripts/databases.sh**: If service uses PostgreSQL, add database name to `INIT_DB_DATABASES` array.
+7. **scripts/generate_welcome_page.sh**: Add service to `SERVICES_ARRAY` for welcome dashboard.
+8. **welcome/app.js**: Add `SERVICE_METADATA` entry with name, description, icon, color, category.
+9. **scripts/07_final_report.sh**: Add service URL and credentials output using `is_profile_active "myservice"`.
+10. **README.md**: Add one-line description under "What's Included".
+11. **CHANGELOG.md**: Add entry under `## [Unreleased]` → `### Added` (new service = minor version bump).
 
 **Always ask users if the new service requires Caddy basic auth protection.**
 
+## Versioning (CHANGELOG.md)
+
+This project uses [Semantic Versioning](https://semver.org/). When updating `CHANGELOG.md`:
+
+### Version Format: `MAJOR.MINOR.PATCH`
+
+| Type | When to bump | Examples |
+|------|--------------|----------|
+| **MAJOR** (X.0.0) | Breaking changes that require user action | n8n 2.0 migration, config format changes, removed features |
+| **MINOR** (0.X.0) | New services or features (backward compatible) | Adding NocoDB, new wizard options, new Makefile commands |
+| **PATCH** (0.0.X) | Bug fixes (backward compatible) | Healthcheck fixes, proxy bypass fixes, typo corrections |
+
+### Changelog Entry Format
+
+```markdown
+## [Unreleased]
+
+## [2.6.0] - 2026-01-15
+
+### Added
+- **NewService** - Brief description of what it provides
+
+### Changed
+- Description of modified behavior
+
+### Fixed
+- Description of bug fix
+```
+
+### After Release
+
+1. Move items from `[Unreleased]` to new version section
+2. Add comparison link at bottom of file:
+   ```markdown
+   [2.6.0]: https://github.com/kossakovsky/n8n-install/compare/v2.5.3...v2.6.0
+   ```
+3. Update `[Unreleased]` link to compare from new version
+
 ## Important Service Details
 
-### n8n Configuration
+### n8n Configuration (v2.0+)
 
 - n8n runs in `EXECUTIONS_MODE=queue` with Redis as the queue backend
-- Custom JavaScript libraries are pre-installed: `cheerio`, `axios`, `moment`, `lodash` (see `NODE_FUNCTION_ALLOW_EXTERNAL`)
+- **OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true**: All executions (including manual tests) run on workers
+- **Worker-Runner Sidecar Pattern**: Each worker has its own dedicated task runner
+  - Workers and runners are generated dynamically via `scripts/generate_n8n_workers.sh`
+  - Configuration stored in `docker-compose.n8n-workers.yml` (auto-generated, gitignored)
+  - Runner connects to its worker via `network_mode: "service:n8n-worker-N"` (localhost:5679)
+  - Runner image `n8nio/runners` must match n8n version
+- **Scaling**: Change `N8N_WORKER_COUNT` in `.env` and run `bash scripts/generate_n8n_workers.sh`
+- **Code node libraries**: Configured via `n8n/n8n-task-runners.json` and `n8n/Dockerfile.runner`:
+  - JS packages installed via `pnpm add` in Dockerfile.runner
+  - Allowlist configured in `n8n-task-runners.json` (`NODE_FUNCTION_ALLOW_EXTERNAL`, `NODE_FUNCTION_ALLOW_BUILTIN`)
+  - Default packages: `cheerio`, `axios`, `moment`, `lodash`
 - Workflows can access the host filesystem via `/data/shared` (mapped to `./shared`)
-- Worker count is controlled by `N8N_WORKER_COUNT` env var (defaults to 1)
+- `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` allows Code nodes to access environment variables
 
 ### Caddy Reverse Proxy
 
@@ -110,17 +177,43 @@ The `scripts/03_generate_secrets.sh` script:
 - Generates random passwords, JWT secrets, API keys, and encryption keys
 - Creates bcrypt password hashes using Caddy's `hash-password` command
 - Preserves existing user-provided values in `.env`
-- Supports different secret types via `VARS_TO_GENERATE` map: `password:32`, `jwt`, `api_key`, etc.
+- Supports different secret types via `VARS_TO_GENERATE` map: `password:32`, `jwt`, `api_key`, `base64:64`, `hex:32`
+
+### Utility Functions (scripts/utils.sh)
+
+Source with: `source "$(dirname "$0")/utils.sh" && init_paths`
+
+Key functions:
+- `is_profile_active "myservice"` - Check if profile is enabled
+- `read_env_var "VAR_NAME"` / `write_env_var "VAR_NAME" "value"` - .env manipulation
+- `load_env` - Source .env file to make variables available
+- `update_compose_profiles "profile1,profile2"` - Update COMPOSE_PROFILES in .env
+- `gen_password 32` / `gen_hex 64` / `gen_base64 64` - Secret generation
+- `generate_bcrypt_hash "password"` - Create Caddy-compatible bcrypt hash (uses Caddy binary)
+- `json_escape "string"` - Escape string for JSON output
+- `wt_input`, `wt_password`, `wt_yesno`, `wt_msg` - Whiptail dialog wrappers
+- `wt_checklist`, `wt_radiolist`, `wt_menu` - Whiptail selection dialogs
+- `wt_parse_choices "$result" array_name` - Parse quoted checklist output safely
+- `log_info`, `log_success`, `log_warning`, `log_error` - Logging functions
+- `log_header`, `log_subheader`, `log_divider`, `log_box` - Formatted output
+- `print_ok`, `print_error`, `print_warning`, `print_info` - Doctor output helpers
+- `get_real_user` / `get_real_user_home` - Get actual user even under sudo
+- `backup_preserved_dirs` / `restore_preserved_dirs` - Directory preservation for git updates
+- `cleanup_legacy_n8n_workers` - Remove old n8n worker containers from previous naming convention
+- `get_n8n_workers_compose` / `get_supabase_compose` / `get_dify_compose` - Get compose file path if profile active AND file exists
+- `build_compose_files_array` - Build global `COMPOSE_FILES` array with all active compose files (main + external)
 
 ### Service Profiles
 
 Common profiles:
-- `n8n`: n8n workflow automation (includes main app, worker, and import services)
+- `n8n`: n8n workflow automation (includes main app, worker, runner, and import services)
 - `flowise`: Flowise AI agent builder
 - `monitoring`: Prometheus, Grafana, cAdvisor, node-exporter
 - `langfuse`: Langfuse observability (includes ClickHouse, MinIO, worker, web)
 - `cpu`, `gpu-nvidia`, `gpu-amd`: Ollama hardware profiles (mutually exclusive)
-- `cloudflare-tunnel`: Cloudflare Tunnel for zero-trust access
+- `cloudflare-tunnel`: Cloudflare Tunnel for zero-trust access (see `cloudflare-instructions.md`)
+- `gost`: HTTP/HTTPS proxy for routing AI service outbound traffic
+- `python-runner`: Internal Python execution environment (no external access)
 
 ## Architecture Patterns
 
@@ -162,6 +255,42 @@ if is_profile_active "myservice"; then
 fi
 ```
 
+### Proxy Configuration (for AI services)
+
+Services making outbound HTTP requests to AI APIs (OpenAI, Anthropic, etc.) should use the shared proxy anchor:
+```yaml
+x-proxy-env: &proxy-env
+  HTTP_PROXY: ${GOST_PROXY_URL:-}
+  HTTPS_PROXY: ${GOST_PROXY_URL:-}
+  NO_PROXY: ${GOST_NO_PROXY:-}
+
+services:
+  myservice:
+    environment:
+      <<: *proxy-env  # Inherit proxy settings
+```
+
+**Important:** Healthchecks must bypass proxy:
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "http_proxy= https_proxy= HTTP_PROXY= HTTPS_PROXY= wget -qO- http://localhost:8080/health || exit 1"]
+```
+
+### Welcome Page Dashboard
+
+The welcome page (`welcome/`) provides a post-install dashboard showing all active services:
+- `scripts/generate_welcome_page.sh`: Generates `welcome/services.json` with service URLs, credentials, and metadata
+- `welcome/app.js`: Contains `SERVICE_METADATA` object defining display properties (name, description, icon, color, category)
+- Categories: `ai`, `database`, `monitoring`, `tools`, `infra`, `automation`
+- Always use `json_escape "$VAR"` when building JSON to handle special characters
+
+### Preserved Directories
+
+Directories in `PRESERVE_DIRS` (defined in `scripts/utils.sh`) survive git updates:
+- `python-runner/` - User's custom Python code
+
+These are backed up before `git reset --hard` and restored after.
+
 ## Common Issues and Solutions
 
 ### Service won't start after adding
@@ -182,12 +311,36 @@ fi
 ## File Locations
 
 - Shared files accessible by n8n: `./shared` (mounted as `/data/shared` in n8n)
-- n8n storage: Docker volume `n8n_storage`
+- n8n storage: Docker volume `localai_n8n_storage`
 - Service-specific volumes: Defined in `volumes:` section at top of `docker-compose.yml`
 - Installation logs: stdout during script execution
 - Service logs: `docker compose -p localai logs <service>`
 
 ## Testing Changes
+
+### Syntax Validation
+
+```bash
+# Docker Compose syntax
+docker compose -p localai config --quiet
+
+# Bash script syntax (validate all key scripts)
+bash -n scripts/utils.sh
+bash -n scripts/git.sh
+bash -n scripts/databases.sh
+bash -n scripts/telemetry.sh
+bash -n scripts/03_generate_secrets.sh
+bash -n scripts/04_wizard.sh
+bash -n scripts/05_configure_services.sh
+bash -n scripts/07_final_report.sh
+bash -n scripts/generate_welcome_page.sh
+bash -n scripts/generate_n8n_workers.sh
+bash -n scripts/apply_update.sh
+bash -n scripts/update.sh
+bash -n scripts/install.sh
+```
+
+### Full Testing
 
 When modifying installer scripts:
 1. Test on a clean Ubuntu 24.04 LTS system (minimum 4GB RAM / 2 CPU)

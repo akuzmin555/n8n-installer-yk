@@ -125,5 +125,11 @@
   },
   "name": "Analyze feedback using AWS Comprehend and send it to a Mattermost channel",
   "active": false,
+<<<<<<< HEAD
   "id": "rSCBLHTnyVvX4aam"
 }
+=======
+  "id": "rSCBLHTnyVvX4aam",
+  "versionId": "91354b8e-3c0d-4692-9f78-dc2b9d19824c"
+}
+>>>>>>> upstream/main

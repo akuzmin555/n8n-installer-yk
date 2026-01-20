@@ -1,8 +1,40 @@
-# n8n Install
+# Self-Hosted AI Automation Platform
 
-**n8n Install** is an open-source Docker Compose template designed to significantly simplify setting up a comprehensive, self-hosted environment for n8n and Flowise. It bundles essential supporting tools like Open WebUI (as an interface for n8n agents), Supabase (database, vector information storage, authentication), Qdrant (high-performance vector information storage), Langfuse (to observe AI model performance), SearXNG (private metasearch), Grafana/Prometheus (monitoring), Crawl4ai (web crawling), and Caddy (for managed HTTPS). Plus, during setup, you can optionally import over 300 community workflows into your n8n instance!
+[![GitHub stars](https://img.shields.io/github/stars/kossakovsky/n8n-install?style=social)](https://github.com/kossakovsky/n8n-install/stargazers)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](https://www.docker.com/)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04%20LTS-E95420?logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![n8n](https://img.shields.io/badge/n8n-compatible-orange)](https://n8n.io)
 
-### Why This Setup?
+**Deploy 30+ AI and automation tools with a single command.** This open-source Docker Compose template creates a complete self-hosted environment with n8n (workflow automation), Flowise (AI agents), Ollama (local LLMs), vector databases (Qdrant, Weaviate), RAG engines, Supabase, monitoring stack, and more — all pre-configured behind Caddy reverse proxy with automatic HTTPS. Plus, optionally import 300+ community workflows during setup!
+
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Why This Setup?](#why-this-setup)
+- [What's Included](#whats-included)
+- [Installation](#installation)
+- [Quick Start and Usage](#quick-start-and-usage)
+- [Upgrading](#upgrading)
+- [Quick Commands](#quick-commands-makefile)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+## Key Features
+
+- **Private AI Homelab** — Run LLMs locally with Ollama, keep your data on your own servers
+- **ChatGPT Alternative** — Open WebUI provides a familiar chat interface for local AI models
+- **Workflow Automation** — n8n with 400+ integrations, scalable queue-based architecture
+- **AI Agents & RAG** — Flowise, Dify, LangChain, vector databases (Qdrant, Weaviate)
+- **One Command Install** — Interactive wizard, automatic secrets, zero manual configuration
+- **Auto HTTPS** — Caddy reverse proxy with automatic Let's Encrypt certificates
+- **Built-in Monitoring** — Grafana + Prometheus stack included
+- **Production Ready** — Scalable workers, health checks, proper service dependencies
+- **Free & Open Source** — No vendor lock-in, Apache 2.0 license
+
+---
+
+## Why This Setup?
 
 This installer helps you create your own powerful, private AI workshop. Imagine having a suite of tools at your fingertips to:
 
@@ -14,10 +46,10 @@ This installer helps you create your own powerful, private AI workshop. Imagine 
 This setup provides a comprehensive suite of cutting-edge services, all pre-configured to work together. Key advantages include:
 
 - **Rich Toolset:** Get a curated collection of powerful open-source tools for AI development, automation, and monitoring, all in one place.
-- **Scalable n8n Performance:** n8n runs in `queue` mode by default, leveraging Redis for task management and Postgres for data storage. You can dynamically specify the number of n8n workers during installation, allowing for robust parallel processing of your workflows to handle demanding loads.
+- **Scalable n8n Performance:** n8n runs in `queue` mode by default, leveraging Redis for task management and Postgres for data storage. You can dynamically specify the number of n8n workers and task runners during installation, allowing for robust parallel processing of your workflows to handle demanding loads.
 - **Full Control:** All of this is hosted by you, giving you full control over your data, operations, and how resources are allocated.
 
-### What's Included
+## What's Included
 
 
 ✅ **[Caddy](https://caddyserver.com/), [Postgres](https://www.postgresql.org/), and [Redis](https://redis.io/)** - Core services for web proxy, database, and caching, which are always included.
@@ -36,6 +68,8 @@ The installer also makes the following powerful open-source tools **available fo
 
 ✅ [**Flowise**](https://flowiseai.com/) - A no-code/low-code AI agent builder that complements n8n perfectly, allowing you to create sophisticated AI applications with ease.
 
+✅ [**Gost**](https://github.com/go-gost/gost) - Versatile HTTP/HTTPS proxy for routing AI service outbound traffic through a central proxy point
+
 ✅ [**Gotenberg**](https://gotenberg.dev/) - A stateless API for converting HTML, Markdown, Word, Excel, and other documents to PDF, PNG, or JPEG. Available only within the Docker network for internal use by n8n workflows and other services.
 
 ✅ [**Grafana**](https://grafana.com/) - An open-source platform for visualizing monitoring data, helping you understand system performance at a glance.
@@ -50,6 +84,8 @@ The installer also makes the following powerful open-source tools **available fo
 
 ✅ [**Neo4j**](https://neo4j.com/) - A graph database management system that allows you to model, store, and query data as a network of nodes and relationships.
 
+✅ [**NocoDB**](https://nocodb.com/) - An open source Airtable alternative that turns any database into a smart spreadsheet with a no-code interface for building collaborative apps.
+
 ✅ [**Ollama**](https://ollama.com/) - Run Llama 3, Mistral, Gemma, and other large language models locally.
 
 ✅ [**Open WebUI**](https://openwebui.com/) - A user-friendly, ChatGPT-like interface to interact privately with your AI models and n8n agents.
@@ -58,7 +94,7 @@ The installer also makes the following powerful open-source tools **available fo
 
 ✅ [**Portainer**](https://www.portainer.io/) - A lightweight, secure web UI to manage your Docker environment (containers, images, volumes, networks) with ease.
 
-✅ [**Postgresus**](https://github.com/RostislavDugin/postgresus) - PostgreSQL monitoring and automated backups with a self-hosted UI.
+✅ [**Databasus**](https://github.com/databasus/databasus) - Database backups & monitoring with a self-hosted UI.
 
 ✅ [**Postiz**](https://postiz.com/) - An open-source social media scheduling and publishing platform.
 
@@ -78,7 +114,7 @@ The installer also makes the following powerful open-source tools **available fo
 
 ✅ [**Weaviate**](https://weaviate.io/) - An open-source AI-native vector database with a focus on scalability and ease of use. It can be used for RAG, hybrid search, and more.
 
-### Included Community Workflows
+## Included Community Workflows
 
 Get started quickly with a vast library of pre-built automations (optional import during setup)! This collection includes over 300 workflows covering a wide range of use cases:
 
@@ -101,9 +137,10 @@ Get started quickly with a vast library of pre-built automations (optional impor
 1.  **Domain Name:** You need a registered domain name (e.g., `yourdomain.com`).
 2.  **DNS Configuration:** Before running the installation script, you **must** configure DNS A-record for your domain, pointing to the public IP address of the server where you'll install this system. Replace `yourdomain.com` with your actual domain:
     - **Wildcard Record:** `A *.yourdomain.com` -> `YOUR_SERVER_IP`
-3.  **Server:** Minimum server system requirements: Ubuntu 24.04 LTS, 64-bit.
-    - For running **all available services**: at least **8 GB Memory / 4 CPU Cores / 60 GB Disk Space **.
-    - For a minimal setup with only **n8n and Flowise**: **4 GB Memory / 2 CPU Cores / 30 GB Disk Space**.
+3.  **VPS (Virtual Private Server):** A dedicated VPS with a public IP address is required. Home servers, shared hosting, or localhost setups are not supported.
+    - **Operating System:** Ubuntu 24.04 LTS, 64-bit
+    - For a minimal setup with **n8n, Monitoring, Databasus and Portainer**: **4 GB Memory / 2 CPU Cores / 40 GB Disk Space**
+    - For running **all available services**: at least **20 GB Memory / 4 CPU Cores / 60 GB Disk Space**
 
 ### Running the Install
 
@@ -129,12 +166,12 @@ During the installation, the script will prompt you for:
 2.  Your **email address** (Required, used for service logins like Flowise, Supabase dashboard, Grafana, and for SSL certificate registration with Let's Encrypt).
 3.  An optional **OpenAI API key** (Not required. If provided, it can be used by Supabase AI features and Crawl4ai. Press Enter to skip).
 4.  Whether you want to **import ~300 ready-made n8n community workflows** (y/n, Optional. This can take 20-30 minutes, depending on your server and network speed).
-5.  The **number of n8n workers** you want to run (Required, e.g., 1, 2, 3, 4. This determines how many workflows can be processed in parallel. Defaults to 1 if not specified).
+5.  The **number of n8n workers** you want to run (Required, e.g., 1, 2, 3, 4. This determines how many workflows can be processed in parallel. Each worker automatically gets its own dedicated task runner sidecar for executing Code nodes. Defaults to 1 if not specified).
 6.  A **Service Selection Wizard** will then appear, allowing you to choose which of the available services (like Flowise, Supabase, Qdrant, Open WebUI, etc.) you want to deploy. Core services (Caddy, Postgres, Redis) will be set up to support your selections.
 
 Upon successful completion, the script will display a summary report. This report contains the access URLs and credentials for the deployed services. **Save this information in a safe place!**
 
-## ⚡️ Quick Start and Usage
+## Quick Start and Usage
 
 After successful installation, your services are up and running! Here's how to get started:
 
@@ -143,19 +180,20 @@ After successful installation, your services are up and running! Here's how to g
 
     - **n8n:** `n8n.yourdomain.com` (Log in with the email address you provided during installation and the initial password from the summary report. You may be prompted to change this password on first login.)
     - **ComfyUI:** `comfyui.yourdomain.com` (Node-based Stable Diffusion UI)
+    - **Databasus:** `databasus.yourdomain.com`
     - **Dify:** `dify.yourdomain.com` (AI application development platform with comprehensive LLMOps capabilities)
     - **Docling:** `docling.yourdomain.com` (Universal document converter with REST API; web UI available at `/ui`)
     - **Flowise:** `flowise.yourdomain.com` (Log in with the email address you provided during installation and the initial password from the summary report.)
     - **Grafana:** `grafana.yourdomain.com`
     - **Langfuse:** `langfuse.yourdomain.com`
-    - **LightRAG:** `lightrag.yourdomain.com`
     - **Letta:** `letta.yourdomain.com`
     - **LibreTranslate:** `translate.yourdomain.com`
+    - **LightRAG:** `lightrag.yourdomain.com`
     - **Neo4j:** `neo4j.yourdomain.com`
+    - **NocoDB:** `nocodb.yourdomain.com`
     - **Open WebUI:** `webui.yourdomain.com`
     - **PaddleOCR:** `paddleocr.yourdomain.com`
     - **Portainer:** `portainer.yourdomain.com` (Protected by Caddy basic auth; on first login, complete Portainer admin setup)
-    - **Postgresus:** `postgresus.yourdomain.com`
     - **Postiz:** `postiz.yourdomain.com`
     - **Prometheus:** `prometheus.yourdomain.com` (Typically used as a data source for Grafana)
     - **Qdrant:** `qdrant.yourdomain.com`
@@ -190,7 +228,7 @@ After successful installation, your services are up and running! Here's how to g
     - Visit Grafana (`grafana.yourdomain.com`) to see dashboards monitoring your system's performance (data sourced from Prometheus).
 	
 
-## 🔒 Secure Access with Cloudflare Tunnel (Optional)
+## Secure Access with Cloudflare Tunnel (Optional)
 
 Cloudflare Tunnel provides zero-trust access to your services without exposing any ports on your server. All traffic is routed through Cloudflare's secure network, providing DDoS protection and hiding your server's IP address.
 
@@ -206,21 +244,38 @@ Cloudflare Tunnel provides zero-trust access to your services without exposing a
 See the Cloudflare Tunnel guide: [cloudflare-instructions.md](cloudflare-instructions.md)
 
 
-### Using Pre-installed Libraries in n8n's Custom JavaScript
+### Using Libraries in n8n Code Nodes (v2.0+)
 
-This setup pre-installs useful Node.js libraries for use in n8n's Code nodes, allowing you to write custom JavaScript snippets with enhanced capabilities:
+n8n v2.0 uses external task runners to execute JavaScript and Python code in Code nodes. This setup pre-configures the following libraries via `n8n/Dockerfile.runner` and `n8n/n8n-task-runners.json`:
 
+**JavaScript libraries**:
 - **`cheerio`**: For parsing and manipulating HTML/XML (e.g., web scraping).
 - **`axios`**: A promise-based HTTP client for making requests to external APIs.
 - **`moment`**: For parsing, validating, manipulating, and displaying dates/times.
 - **`lodash`**: A utility library for common programming tasks (arrays, objects, strings, etc.).
 
+### Pre-installed System Tools in n8n
+
+The custom n8n Docker image (`n8n/Dockerfile.n8n`) includes the following system-level tools:
+
+- **`ffmpeg`**: A powerful multimedia framework for converting, recording, and streaming audio and video. Use it via the [Execute Command](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executecommand/) node in n8n workflows for tasks like:
+  - Converting video/audio formats (e.g., MP4 to MP3)
+  - Extracting audio from video files
+  - Resizing or compressing media files
+  - Generating thumbnails from videos
+
 ## Upgrading
 
-To update all components (n8n, Open WebUI, etc.) to their latest versions and incorporate the newest changes from this installer project, use the update script from the project root:
+To update all components (n8n, Open WebUI, etc.) to their latest versions and incorporate the newest changes from this installer project:
 
 ```bash
-sudo bash ./scripts/update.sh
+make update
+```
+
+**For forks**: If you maintain a fork with custom changes and want to merge updates from upstream instead of resetting:
+
+```bash
+make git-pull
 ```
 
 This script will:
@@ -233,13 +288,55 @@ This script will:
 
 ## Cleaning up Docker
 
-If you need to free up disk space, you can run the Docker cleanup script. This script removes all unused Docker containers, images, and volumes.
+If you need to free up disk space, you can run the Docker cleanup command. This removes all unused Docker containers, images, and volumes.
 
 ```bash
-sudo bash ./scripts/docker_cleanup.sh
+make clean
 ```
 
 This can be useful for removing old images and freeing up space, but be aware that it will remove all unused data.
+
+## Quick Commands (Makefile)
+
+The project includes a Makefile for simplified command execution:
+
+### Installation & Updates
+
+| Command               | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `make install`        | Full installation                                    |
+| `make update`         | Update system and services (resets to origin)        |
+| `make update-preview` | Preview available updates without applying (dry-run) |
+| `make git-pull`       | Update for forks (merges from upstream/main)         |
+| `make clean`          | Remove unused Docker resources                       |
+
+### Monitoring & Logs
+
+| Command                 | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `make logs`             | View logs (all services)                                 |
+| `make logs s=<service>` | View logs for specific service (e.g., `make logs s=n8n`) |
+| `make status`           | Show container status                                    |
+| `make monitor`          | Live CPU/memory monitoring                               |
+| `make restart`          | Restart all services                                     |
+| `make stop`             | Stop all services                                        |
+| `make start`            | Start all services                                       |
+| `make show-restarts`    | Show restart count per container                         |
+| `make import`           | Import n8n workflows from backup                         |
+| `make import n=10`      | Import first N workflows only                            |
+
+### Diagnostics & Configuration
+
+| Command          | Description                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `make doctor`    | Run system diagnostics (checks DNS, SSL, containers, disk, memory) |
+| `make setup-tls` | Configure custom TLS certificates for corporate/internal use       |
+
+Run `make help` for the full list of available commands.
+
+## Community Ports
+
+- [n8n-installer-arch](https://github.com/ndrewpj/n8n-installer-arch) by [@ndrewpj](https://github.com/ndrewpj) - Adapted for Arch-based Linux distributions (Arch Linux, CachyOS, Manjaro)
 
 ## Important Links
 
@@ -271,7 +368,19 @@ Here are solutions to common issues you might encounter:
 - **VPN Conflicts:** Using a VPN might interfere with downloading Docker images. If you encounter issues pulling images, try temporarily disabling your VPN.
 - **Server Requirements:** If you experience unexpected issues, ensure your server meets the minimum hardware and operating system requirements (including version) as specified in the "Prerequisites before Installation" section.
 
-## 👓 Recommended Reading
+### Update Script Not Working
+
+- **Symptom:** The `make update` command fails, shows errors, or doesn't apply the latest changes.
+- **Cause:** This can happen if your local repository has diverged from the upstream, has uncommitted changes, or is in an inconsistent state.
+- **Solution:** Run the following command to force-sync your local installation with the latest version:
+
+  ```bash
+  git config pull.rebase true && git fetch origin && git checkout main && git reset --hard "origin/main" && make update
+  ```
+
+  **Warning:** This will discard any local changes you've made to the installer files. If you've customized any scripts or configurations, back them up first.
+
+## Recommended Reading
 
 n8n offers excellent resources for getting started with its AI capabilities:
 
@@ -281,7 +390,7 @@ n8n offers excellent resources for getting started with its AI capabilities:
 - [Demonstration of key differences between agents and chains](https://docs.n8n.io/advanced-ai/examples/agent-chain-comparison/)
 - [What are vector databases?](https://docs.n8n.io/advanced-ai/examples/understand-vector-databases/) (Explains tools like Supabase and Qdrant in more detail)
 
-## 🛍️ More AI Templates
+## More AI Templates
 
 For more AI workflow ideas, visit the [**official n8n AI template gallery**](https://n8n.io/workflows/?categories=AI). From each workflow, select the **Use workflow** button to automatically import it into your n8n instance.
 
@@ -311,10 +420,27 @@ When you build automations in n8n that need to read or write files on your serve
 - [Local File Trigger](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.localfiletrigger/) (To start workflows when files change)
 - [Execute Command](https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.executecommand/) (To run command-line tools)
 
-## 🙌 Contributors
+## Contributors
 
 Want to see who has contributed to this project? Check out the [**GitHub Contributors Page**](https://github.com/kossakovsky/n8n-install/graphs/contributors)!
 
-## 📜 License
+## Telemetry
+
+This installer collects anonymous usage statistics via [Scarf](https://scarf.sh) to help improve the project. **No personal data is collected.**
+
+Data collected:
+- Event type (install/update start/complete)
+- Installer version
+- Selected services
+- OS type (e.g., ubuntu-24.04)
+- Random installation ID (to correlate start/complete events)
+- Country (determined by Scarf from IP, not stored by us)
+
+To opt out, add to your `.env` file after installation:
+```
+SCARF_ANALYTICS=false
+```
+
+## License
 
 This project (originally created by the n8n team, with further development by contributors - see "Important Links") is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

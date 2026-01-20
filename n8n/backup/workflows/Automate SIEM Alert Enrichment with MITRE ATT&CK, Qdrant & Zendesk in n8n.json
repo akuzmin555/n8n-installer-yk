@@ -742,5 +742,11 @@
   },
   "name": "Automate SIEM Alert Enrichment with MITRE ATT&CK, Qdrant & Zendesk in n8n",
   "active": false,
+<<<<<<< HEAD
   "id": "JVYYEyKg5mIUM0yY"
 }
+=======
+  "id": "JVYYEyKg5mIUM0yY",
+  "versionId": "7a96f9e4-97c4-4656-8997-4d37f28d86b2"
+}
+>>>>>>> upstream/main

@@ -1,51 +1,65 @@
 #!/bin/bash
+# =============================================================================
+# 01_system_preparation.sh - System preparation and security hardening
+# =============================================================================
+# Prepares an Ubuntu/Debian system for running Docker services:
+#   - Updates system packages and installs essential CLI tools
+#   - Configures UFW firewall (allows SSH, HTTP, HTTPS; denies other incoming)
+#   - Enables Fail2Ban for SSH brute-force protection
+#   - Sets up automatic security updates via unattended-upgrades
+#   - Configures vm.max_map_count for Elasticsearch (required by RAGFlow)
+#
+# Required: Must be run as root (sudo)
+# =============================================================================
 
 set -e
 
-# Source the utilities file
+# Source the utilities file and initialize paths
 source "$(dirname "$0")/utils.sh"
+init_paths
+
+# Source git utilities
+source "$SCRIPT_DIR/git.sh"
 
 export DEBIAN_FRONTEND=noninteractive
 
 # System Update
-log_info "Updating package list and upgrading the system..."
-apt update -y && apt upgrade -y
+log_subheader "System Update"
+log_info "Updating package list..."
+apt update -y
+log_info "Enabling universe repository..."
+apt install -y software-properties-common
+add-apt-repository universe -y
+log_info "Upgrading the system..."
+apt upgrade -y
 
 # Installing Basic Utilities
+log_subheader "Installing Utilities"
 log_info "Installing standard CLI tools..."
 apt install -y \
-  htop git curl make unzip ufw fail2ban python3 psmisc whiptail \
+  git curl make ufw fail2ban python3 psmisc whiptail \
   build-essential ca-certificates gnupg lsb-release openssl \
-  debian-keyring debian-archive-keyring apt-transport-https python3-pip python3-dotenv python3-yaml
+  apt-transport-https python3-dotenv python3-yaml
+
+# Configure git to use rebase on pull (prevents merge commits during updates)
+git_configure_pull_rebase
 
 # Configuring Firewall (UFW)
-log_info "Configuring firewall (UFW)..."
+log_subheader "Firewall (UFW)"
+log_info "Configuring firewall..."
 echo "y" | ufw reset
 ufw --force enable
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow 2247/tcp comment 'SSH Custom Port'
+ufw allow ssh
 ufw allow http
 ufw allow https
 ufw reload
 ufw status
 
 # Configuring Fail2Ban
-log_info "Enabling brute-force protection (Fail2Ban)..."
-
-# Configure Fail2Ban for custom SSH port 2247
-log_info "Configuring Fail2Ban for SSH on port 2247..."
-cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
-[sshd]
-enabled = true
-port = 2247
-logpath = %(sshd_log)s
-backend = %(sshd_backend)s
-maxretry = 5
-bantime = 3600
-findtime = 600
-EOF
-
+log_subheader "Fail2Ban"
+log_info "Enabling brute-force protection..."
 systemctl enable fail2ban
 sleep 1
 systemctl start fail2ban
@@ -55,12 +69,14 @@ sleep 1
 fail2ban-client status sshd
 
 # Automatic Security Updates
+log_subheader "Security Updates"
 log_info "Enabling automatic security updates..."
 apt install -y unattended-upgrades
 # Automatic confirmation for dpkg-reconfigure
 echo "y" | dpkg-reconfigure --priority=low unattended-upgrades
 
 # Configure vm.max_map_count for Elasticsearch (required for RAGFlow)
+log_subheader "Kernel Parameters"
 log_info "Configuring vm.max_map_count for Elasticsearch..."
 CURRENT_VALUE=$(sysctl -n vm.max_map_count 2>/dev/null || echo "0")
 if [[ "$CURRENT_VALUE" -lt 262144 ]]; then

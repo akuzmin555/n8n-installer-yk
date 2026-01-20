@@ -1,39 +1,27 @@
 #!/bin/bash
+# =============================================================================
+# 04_wizard.sh - Interactive service selection wizard
+# =============================================================================
+# Guides the user through selecting which services to install using whiptail.
+#
+# Features:
+#   - Single-screen checklist for service selection
+#   - Default services: n8n, portainer, monitoring, databasus
+#   - Preserves previously selected services on re-run
+#   - Updates COMPOSE_PROFILES in .env file
+#
+# Usage: bash scripts/04_wizard.sh
+# =============================================================================
 
-# Script to guide user through service selection
-
-# Source utility functions, if any, assuming it's in the same directory
-# and .env is in the parent directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$PROJECT_ROOT/.env"
-
-# Source the utilities file
+# Source the utilities file and initialize paths
 source "$(dirname "$0")/utils.sh"
+init_paths
 
-# UTILS_SCRIPT="$SCRIPT_DIR/utils.sh" # Uncomment if utils.sh contains relevant functions
+# Verify whiptail is available
+require_whiptail
 
-# if [ -f "$UTILS_SCRIPT" ]; then
-#     source "$UTILS_SCRIPT"
-# fi
-
-# Function to check if whiptail is installed
-check_whiptail() {
-    if ! command -v whiptail &> /dev/null; then
-        log_error "'whiptail' is not installed."
-        log_info "This tool is required for the interactive service selection."
-        log_info "On Debian/Ubuntu, you can install it using: sudo apt-get install whiptail"
-        log_info "Please install whiptail and try again."
-        exit 1
-    fi
-}
-
-# Call the check
-check_whiptail
-
-# Store original DEBIAN_FRONTEND and set to dialog for whiptail
-ORIGINAL_DEBIAN_FRONTEND="$DEBIAN_FRONTEND"
-export DEBIAN_FRONTEND=dialog
+# Set DEBIAN_FRONTEND for whiptail
+save_debian_frontend
 
 # --- Read current COMPOSE_PROFILES from .env ---
 CURRENT_PROFILES_VALUE=""
@@ -53,22 +41,24 @@ base_services_data=(
     "cloudflare-tunnel" "Cloudflare Tunnel (Zero-Trust Secure Access)"
     "comfyui" "ComfyUI (Node-based Stable Diffusion UI)"
     "crawl4ai" "Crawl4ai (Web Crawler for AI)"
-    "docling" "Docling (Universal Document Converter to Markdown/JSON)"
+    "databasus" "Databasus (Database backups & monitoring)"
     "dify" "Dify (AI Application Development Platform with LLMOps)"
+    "docling" "Docling (Universal Document Converter to Markdown/JSON)"
     "flowise" "Flowise (AI Agent Builder)"
+    "gost" "Gost Proxy (HTTP/HTTPS proxy for AI services outbound traffic)"
     "gotenberg" "Gotenberg (Document Conversion API)"
     "langfuse" "Langfuse Suite (AI Observability - includes Clickhouse, Minio)"
     "letta" "Letta (Agent Server & SDK)"
-    "lightrag" "LightRAG (Graph-based RAG with knowledge graphs)"
     "libretranslate" "LibreTranslate (Self-hosted translation API - 50+ languages)"
+    "lightrag" "LightRAG (Graph-based RAG with knowledge graphs)"
     "monitoring" "Monitoring Suite (Prometheus, Grafana, cAdvisor, Node-Exporter)"
     "n8n" "n8n, n8n-worker, n8n-import (Workflow Automation)"
     "neo4j" "Neo4j (Graph Database)"
+    "nocodb" "NocoDB (Open Source Airtable Alternative - Spreadsheet Database)"
     "ollama" "Ollama (Local LLM Runner - select hardware in next step)"
     "open-webui" "Open WebUI (ChatGPT-like Interface)"
     "paddleocr" "PaddleOCR (OCR API Server)"
     "portainer" "Portainer (Docker management UI)"
-    "postgresus" "Postgresus (PostgreSQL backups & monitoring)"
     "postiz" "Postiz (Social publishing platform)"
     "python-runner" "Python Runner (Run your custom Python code from ./python-runner)"
     "qdrant" "Qdrant (Vector Database)"
@@ -102,7 +92,7 @@ while [ $idx -lt ${#base_services_data[@]} ]; do
     else
         # .env has no COMPOSE_PROFILES or it's empty/just quotes, use hardcoded defaults
         case "$tag" in
-            "n8n"|"portainer"|"monitoring"|"postgresus") status="ON" ;;
+            "n8n"|"portainer"|"monitoring"|"databasus") status="ON" ;;
             *) status="OFF" ;;
         esac
     fi
@@ -110,33 +100,21 @@ while [ $idx -lt ${#base_services_data[@]} ]; do
     idx=$((idx + 2))
 done
 
-# Use whiptail to display the checklist
-num_services=$(( ${#services[@]} / 3 ))
-CHOICES=$(whiptail --title "Service Selection Wizard" --checklist \
-  "Choose the services you want to deploy.\nUse ARROW KEYS to navigate, SPACEBAR to select/deselect, ENTER to confirm." 32 90 $num_services \
-  "${services[@]}" \
-  3>&1 1>&2 2>&3)
+# Use whiptail to display the checklist (with adaptive sizing)
+CHOICES=$(wt_checklist "Service Selection Wizard" \
+  "Choose the services you want to deploy.\nUse ARROW KEYS to navigate, SPACEBAR to select/deselect, ENTER to confirm." \
+  "${services[@]}")
+exitstatus=$?
 
 # Restore original DEBIAN_FRONTEND
-if [ -n "$ORIGINAL_DEBIAN_FRONTEND" ]; then
-  export DEBIAN_FRONTEND="$ORIGINAL_DEBIAN_FRONTEND"
-else
-  unset DEBIAN_FRONTEND
-fi
+restore_debian_frontend
 
 # Exit if user pressed Cancel or Esc
-exitstatus=$?
 if [ $exitstatus -ne 0 ]; then
     log_info "Service selection cancelled by user. Exiting wizard."
     log_info "No changes made to service profiles. Default services will be used."
     # Set COMPOSE_PROFILES to empty to ensure only core services run
-    if [ ! -f "$ENV_FILE" ]; then
-        touch "$ENV_FILE"
-    fi
-    if grep -q "^COMPOSE_PROFILES=" "$ENV_FILE"; then
-        sed -i.bak "/^COMPOSE_PROFILES=/d" "$ENV_FILE"
-    fi
-    echo "COMPOSE_PROFILES=" >> "$ENV_FILE"
+    update_compose_profiles ""
     exit 0
 fi
 
@@ -146,10 +124,9 @@ ollama_selected=0
 ollama_profile=""
 
 if [ -n "$CHOICES" ]; then
-    # Whiptail returns a string like "tag1" "tag2" "tag3"
-    # We need to remove quotes and convert to an array
+    # Parse whiptail output safely (without eval)
     temp_choices=()
-    eval "temp_choices=($CHOICES)"
+    wt_parse_choices "$CHOICES" temp_choices
 
     for choice in "${temp_choices[@]}"; do
         if [ "$choice" == "ollama" ]; then
@@ -163,11 +140,11 @@ fi
 # Enforce mutual exclusivity between Dify and Supabase (compact)
 if printf '%s\n' "${selected_profiles[@]}" | grep -qx "dify" && \
    printf '%s\n' "${selected_profiles[@]}" | grep -qx "supabase"; then
-    CHOSEN_EXCLUSIVE=$(whiptail --title "Conflict: Dify and Supabase" --default-item "supabase" --radiolist \
-      "Dify and Supabase are mutually exclusive. Choose which one to keep." 15 78 2 \
+    CHOSEN_EXCLUSIVE=$(wt_radiolist "Conflict: Dify and Supabase" \
+      "Dify and Supabase are mutually exclusive. Choose which one to keep." \
+      "supabase" \
       "dify" "Keep Dify (AI App Platform)" OFF \
-      "supabase" "Keep Supabase (Backend as a Service)" ON \
-      3>&1 1>&2 2>&3)
+      "supabase" "Keep Supabase (Backend as a Service)" ON)
     [ -z "$CHOSEN_EXCLUSIVE" ] && CHOSEN_EXCLUSIVE="supabase"
 
     to_remove=$([ "$CHOSEN_EXCLUSIVE" = "dify" ] && echo "supabase" || echo "dify")
@@ -209,10 +186,10 @@ if [ $ollama_selected -eq 1 ]; then
         "gpu-nvidia" "NVIDIA GPU (Requires NVIDIA drivers & CUDA)" "$ollama_hw_on_gpu_nvidia"
         "gpu-amd" "AMD GPU (Requires ROCm drivers)" "$ollama_hw_on_gpu_amd"
     )
-    CHOSEN_OLLAMA_PROFILE=$(whiptail --title "Ollama Hardware Profile" --default-item "$default_ollama_hardware" --radiolist \
-      "Choose the hardware profile for Ollama. This will be added to your Docker Compose profiles." 15 78 3 \
-      "${ollama_hardware_options[@]}" \
-      3>&1 1>&2 2>&3)
+    CHOSEN_OLLAMA_PROFILE=$(wt_radiolist "Ollama Hardware Profile" \
+      "Choose the hardware profile for Ollama. This will be added to your Docker Compose profiles." \
+      "$default_ollama_hardware" \
+      "${ollama_hardware_options[@]}")
 
     ollama_exitstatus=$?
     if [ $ollama_exitstatus -eq 0 ] && [ -n "$CHOSEN_OLLAMA_PROFILE" ]; then
@@ -227,50 +204,74 @@ if [ $ollama_selected -eq 1 ]; then
     fi
 fi
 
+# If Gost was selected, prompt for upstream proxy URL
+gost_selected=0
+for p in "${selected_profiles[@]}"; do
+    [ "$p" = "gost" ] && gost_selected=1 && break
+done
+
+if [ $gost_selected -eq 1 ]; then
+    # Get existing value from .env if available
+    EXISTING_UPSTREAM=$(read_env_var "GOST_UPSTREAM_PROXY")
+
+    GOST_UPSTREAM_INPUT=$(wt_input "Gost Upstream Proxy" \
+        "Enter your external proxy URL for geo-bypass.\n\nExamples:\n  socks5://user:pass@proxy.com:1080\n  http://user:pass@proxy.com:8080\n\nThis proxy should be located outside restricted regions." \
+        "$EXISTING_UPSTREAM") || true
+
+    if [ -n "$GOST_UPSTREAM_INPUT" ]; then
+        # Save upstream proxy to .env file
+        write_env_var "GOST_UPSTREAM_PROXY" "$GOST_UPSTREAM_INPUT"
+        log_info "Gost upstream proxy configured: $GOST_UPSTREAM_INPUT"
+
+        # Also generate GOST_PROXY_URL (needed because wizard runs AFTER generate_secrets)
+        GOST_USER=$(read_env_var "GOST_USERNAME")
+        GOST_PASS=$(read_env_var "GOST_PASSWORD")
+        if [ -n "$GOST_USER" ] && [ -n "$GOST_PASS" ]; then
+            GOST_PROXY_URL="http://${GOST_USER}:${GOST_PASS}@gost:8080"
+            write_env_var "GOST_PROXY_URL" "$GOST_PROXY_URL"
+            log_info "Gost proxy URL generated: http://***:***@gost:8080"
+        fi
+    else
+        # Remove gost from selected profiles if no upstream provided
+        tmp=()
+        for p in "${selected_profiles[@]}"; do
+            [ "$p" != "gost" ] && tmp+=("$p")
+        done
+        selected_profiles=("${tmp[@]}")
+        log_warning "Gost requires an upstream proxy. Gost has been removed from selection."
+    fi
+fi
+
 if [ ${#selected_profiles[@]} -eq 0 ]; then
     log_info "No optional services selected."
     COMPOSE_PROFILES_VALUE=""
 else
-    log_info "You have selected the following service profiles to be deployed:"
+    log_info "Selected service profiles:"
     # Join the array into a comma-separated string
     COMPOSE_PROFILES_VALUE=$(IFS=,; echo "${selected_profiles[*]}")
     for profile in "${selected_profiles[@]}"; do
         # Check if the current profile is an Ollama hardware profile that was chosen
         if [[ "$profile" == "cpu" || "$profile" == "gpu-nvidia" || "$profile" == "gpu-amd" ]]; then
-            if [ "$profile" == "$ollama_profile" ]; then # ollama_profile stores the CHOSEN_OLLAMA_PROFILE from this wizard run
-                 echo "  - Ollama ($profile profile)"
-            else # This handles a (highly unlikely) non-Ollama service named "cpu", "gpu-nvidia", or "gpu-amd"
-                 echo "  - $profile"
+            if [ "$profile" == "$ollama_profile" ]; then
+                 echo -e "  ${GREEN}*${NC} Ollama ($profile profile)"
+            else
+                 echo -e "  ${GREEN}*${NC} $profile"
             fi
         else
-            echo "  - $profile"
+            echo -e "  ${GREEN}*${NC} $profile"
         fi
     done
 fi
 
 # Update or add COMPOSE_PROFILES in .env file
-# Ensure .env file exists (it should have been created by 03_generate_secrets.sh or exist from previous run)
-if [ ! -f "$ENV_FILE" ]; then
-    log_warning "'.env' file not found at $ENV_FILE. Creating it."
-    touch "$ENV_FILE"
-fi
-
-
-# Remove existing COMPOSE_PROFILES line if it exists
-if grep -q "^COMPOSE_PROFILES=" "$ENV_FILE"; then
-    # Using a different delimiter for sed because a profile name might contain '/' (unlikely here)
-    sed -i.bak "\|^COMPOSE_PROFILES=|d" "$ENV_FILE"
-fi
-
-# Add the new COMPOSE_PROFILES line
-echo "COMPOSE_PROFILES=${COMPOSE_PROFILES_VALUE}" >> "$ENV_FILE"
+update_compose_profiles "$COMPOSE_PROFILES_VALUE"
 if [ -z "$COMPOSE_PROFILES_VALUE" ]; then
     log_info "Only core services (Caddy, Postgres, Redis) will be started."
 else
     log_info "The following Docker Compose profiles will be active: ${COMPOSE_PROFILES_VALUE}"
 fi
 
-# Make the script executable (though install.sh calls it with bash)
-chmod +x "$SCRIPT_DIR/04_wizard.sh"
+# Cleanup any .bak files created by sed
+cleanup_bak_files "$PROJECT_ROOT"
 
 exit 0
