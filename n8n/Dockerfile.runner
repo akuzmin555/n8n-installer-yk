@@ -1,4 +1,5 @@
-FROM n8nio/runners:stable
+ARG N8N_IMAGE_TAG=2.7.3
+FROM n8nio/runners:${N8N_IMAGE_TAG}
 
 USER root
 

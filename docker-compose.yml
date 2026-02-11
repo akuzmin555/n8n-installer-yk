@@ -57,6 +57,8 @@ x-n8n: &service-n8n
   build:
     context: ./n8n
     dockerfile: Dockerfile.n8n
+    args:
+      N8N_IMAGE_TAG: ${N8N_IMAGE_TAG:-2.7.3}
     pull: true
   environment: &service-n8n-env
     <<: *proxy-env
@@ -134,6 +136,8 @@ x-n8n-worker-runner: &service-n8n-worker-runner
   build:
     context: ./n8n
     dockerfile: Dockerfile.runner
+    args:
+      N8N_IMAGE_TAG: ${N8N_IMAGE_TAG:-2.7.3}
     pull: true
   environment:
     <<: *proxy-env
