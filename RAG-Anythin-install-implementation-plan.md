@@ -209,34 +209,34 @@
   - Статус: отдельный runtime path, не часть `raganything` ingest flow по умолчанию.
 
 ### Tasks
-- [ ] Создать в корне репозитория `README_RAGAnything.md`.
-- [ ] Описать, что `RAG-Anything` не query endpoint.
-- [ ] Описать команду ingestion одного документа.
-- [ ] Описать обязательный restart `lightrag`.
-- [ ] Описать, что вопросы после ingest всё равно идут в `LightRAG`.
-- [ ] Описать порядок запуска MinerU: сначала проверка в CPU-режиме, затем переключение на GPU.
-- [ ] Описать ограничения первой версии: долгий первый запуск, тяжёлые parser downloads.
-- [ ] Зафиксировать в проектной документации canonical storage rule:
-  - [ ] один и тот же документ не хранится постоянно и в `sample-documents/`, и в `input/`
-  - [ ] если документ нужен как fixture, постоянная копия живёт в `sample-documents/`
-  - [ ] `input/` используется только как временная рабочая копия перед ingest
-- [ ] Зафиксировать retention policy:
-  - [ ] `input/` очищается после успешного ingest и ручной проверки в `LightRAG`
-  - [ ] `output/` очищается после успешного ingest и ручной проверки в `LightRAG`, если не идёт active debugging
-  - [ ] `rag_storage` не очищается такими housekeeping-действиями
-  - [ ] удаление документа из `LightRAG` выполняется отдельно, через document-level workflow/UI/API, а не через удаление файлов из `input/` или `output/`
-- [ ] Зафиксировать Git policy:
-  - [ ] `.gitkeep` в `raganything/input/` и `raganything/output/` остаются tracked
-  - [ ] runtime content из `raganything/input/` не должен попадать в обычные коммиты
-  - [ ] runtime content из `raganything/output/` не должен попадать в обычные коммиты
-  - [ ] `sample-documents/` хранит только маленькие, безопасные, осознанно выбранные fixtures
-  - [ ] данные из `lightrag_data` никогда не коммитятся в репозиторий
-- [ ] Зафиксировать операторский lifecycle одного документа:
-  - [ ] взять PDF из внешнего источника или из `sample-documents/`
-  - [ ] положить рабочую копию в `raganything/input/`
-  - [ ] выполнить ingest через `raganything`
-  - [ ] проверить документ через текущий `LightRAG`
-  - [ ] очистить `raganything/input/` и при необходимости `raganything/output/`
+- [x] Создать в корне репозитория `README_RAGAnything.md`.
+- [x] Описать, что `RAG-Anything` не query endpoint.
+- [x] Описать команду ingestion одного документа.
+- [x] Описать обязательный restart `lightrag`.
+- [x] Описать, что вопросы после ingest всё равно идут в `LightRAG`.
+- [x] Описать порядок запуска MinerU: сначала проверка в CPU-режиме, затем переключение на GPU.
+- [x] Описать ограничения первой версии: долгий первый запуск, тяжёлые parser downloads.
+- [x] Зафиксировать в проектной документации canonical storage rule:
+  - [x] один и тот же документ не хранится постоянно и в `sample-documents/`, и в `input/`
+  - [x] если документ нужен как fixture, постоянная копия живёт в `sample-documents/`
+  - [x] `input/` используется только как временная рабочая копия перед ingest
+- [x] Зафиксировать retention policy:
+  - [x] `input/` очищается после успешного ingest и ручной проверки в `LightRAG`
+  - [x] `output/` очищается после успешного ingest и ручной проверки в `LightRAG`, если не идёт active debugging
+  - [x] `rag_storage` не очищается такими housekeeping-действиями
+  - [x] удаление документа из `LightRAG` выполняется отдельно, через document-level workflow/UI/API, а не через удаление файлов из `input/` или `output/`
+- [x] Зафиксировать Git policy:
+  - [x] `.gitkeep` в `raganything/input/` и `raganything/output/` остаются tracked
+  - [x] runtime content из `raganything/input/` не должен попадать в обычные коммиты
+  - [x] runtime content из `raganything/output/` не должен попадать в обычные коммиты
+  - [x] `sample-documents/` хранит только маленькие, безопасные, осознанно выбранные fixtures
+  - [x] данные из `lightrag_data` никогда не коммитятся в репозиторий
+- [x] Зафиксировать операторский lifecycle одного документа:
+  - [x] взять PDF из внешнего источника или из `sample-documents/`
+  - [x] положить рабочую копию в `raganything/input/`
+  - [x] выполнить ingest через `raganything`
+  - [x] проверить документ через текущий `LightRAG`
+  - [x] очистить `raganything/input/` и при необходимости `raganything/output/`
 
 ### Done When
 - Оператор может выполнить ingest и понять дальнейший query flow без видео блогера.
@@ -251,17 +251,17 @@
 **Goal:** подготовить эксплуатационный сценарий “как у блогера”, но под архитектуру этого форка.
 
 ### Tasks
-- [ ] Описать future skill `raganything-upload`.
-- [ ] Зафиксировать его вход: путь к документу.
-- [ ] Зафиксировать его шаги:
-  - [ ] запуск `process_document.py` внутри `raganything`
-  - [ ] ожидание завершения
-  - [ ] restart `lightrag`
-  - [ ] сообщение пользователю, что query path прежний
-- [ ] Зафиксировать, что skill не открывает отдельный endpoint для вопросов.
-- [ ] Зафиксировать различие:
-  - [ ] multimodal ingest -> `raganything-upload`
-  - [ ] query -> existing `LightRAG` flow
+- [x] Описать future skill `raganything-upload`.
+- [x] Зафиксировать его вход: путь к документу.
+- [x] Зафиксировать его шаги:
+  - [x] запуск `process_document.py` внутри `raganything`
+  - [x] ожидание завершения
+  - [x] restart `lightrag`
+  - [x] сообщение пользователю, что query path прежний
+- [x] Зафиксировать, что skill не открывает отдельный endpoint для вопросов.
+- [x] Зафиксировать различие:
+  - [x] multimodal ingest -> `raganything-upload`
+  - [x] query -> existing `LightRAG` flow
 
 ### Done When
 - Skill contract можно реализовывать без новых архитектурных решений.
@@ -273,24 +273,41 @@
 **Goal:** доказать, что схема реально работает end-to-end.
 
 ### Tasks
-- [ ] Проверить compose config:
-  - [ ] `docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml config -q`
-- [ ] Собрать image `raganything`.
+- [x] Проверить compose config:
+  - [x] `docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml config -q`
+- [x] Собрать image `raganything`.
 - [ ] Проверить imports внутри контейнера.
-- [ ] Подготовить тестовый multimodal документ.
-- [ ] Запустить ingestion через `raganything` с MinerU в CPU-режиме.
-- [ ] Убедиться, что script завершился без storage/init ошибок в CPU-режиме.
+- [x] Подготовить тестовый multimodal документ.
+- [x] Запустить ingestion через `raganything` с MinerU в CPU-режиме.
+- [x] Убедиться, что script завершился без storage/init ошибок в CPU-режиме.
 - [ ] Переключить MinerU на GPU-режим после успешного CPU-теста.
 - [ ] Повторно запустить ingestion через `raganything` с MinerU в GPU-режиме.
 - [ ] Убедиться, что GPU-режим работает без storage/init ошибок.
-- [ ] Выполнить restart `lightrag`.
-- [ ] Проверить через текущий `LightRAG`, что новые данные доступны.
+- [x] Выполнить restart `lightrag`.
+- [x] Проверить через текущий `LightRAG`, что новые данные доступны.
 - [ ] Сделать regression check:
   - [ ] `make update-preview`
   - [ ] `make doctor` если окружение позволяет
 
 ### Done When
 - После ingest и restart данные реально видны в текущем `LightRAG` UI/API.
+
+### Current Summary
+- Remote operator workflow from a local Windows machine was validated successfully via local `ssh-agent`, `scp` into `raganything/input/`, remote `docker compose ... run --rm raganything ...`, and remote restart of `lightrag`.
+- File validated in this phase:
+  - `/home/ph-pom-gpu/n8n-installer-yk/raganything/input/q1_2024_operational_report.pdf`
+- CPU result with default MinerU backend:
+  - failed due to MinerU task timeout while polling internal `mineru-api`
+- CPU result with explicit MinerU backend `pipeline`:
+  - success
+  - document appeared in `LightRAG` Documents after restart
+  - retrieval returned grounded answers from the new document
+- Retrieval caveat observed:
+  - one question about Q3 2024 revenue was not answered directly even though the document was indexed and other questions against the same document worked
+- Next Phase 7 focus:
+  - GPU validation
+  - decide whether CPU docs/skill should recommend `--backend pipeline` as default or fallback
+  - investigate retrieval quality separately from ingest success
 
 ## Acceptance Criteria
 - [ ] `RAG-Anything` живёт как override-only internal runner.

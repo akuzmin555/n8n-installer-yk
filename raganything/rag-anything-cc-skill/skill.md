@@ -1,90 +1,140 @@
 ---
 name: raganything-upload
-description: Process a multimodal document (PDF with images, tables, charts, equations) through RAG-Anything into the LightRAG knowledge graph. Use this skill whenever the user wants to ingest a PDF or complex document that contains non-text content like charts, tables, images, or equations. Triggers on phrases like "process this PDF", "raganything upload", "ingest this with raganything", "add this document to the knowledge graph with multimodal support", or any request to process documents that have visual/tabular content.
+description: Process a multimodal document (PDF with images, tables, charts, equations) through the repo's RAG-Anything runner into shared LightRAG storage. Use this skill when the user wants to ingest a PDF or mixed-content document and then query it through the existing LightRAG flow.
 ---
 
 # RAG-Anything Upload
 
-Process a multimodal document through RAG-Anything's pipeline — MinerU parses the document structure, GPT-5.4-nano extracts entities from text and visual content, and everything gets written into the existing LightRAG knowledge graph.
+Use this skill for multimodal ingest in this fork from a local machine that connects to the server over SSH. It uploads the local file into the server's `raganything/input/`, runs `process_document.py` inside the internal `raganything` container, waits for completion, restarts `lightrag`, and tells the user to keep querying through the existing `LightRAG` UI or API.
 
-## When to use this vs `/lightrag-upload`
+This skill does not create a new question-answering endpoint. `RAG-Anything` here is ingest-only.
 
-- **`/lightrag-upload`** — for plain text documents (TXT, MD, simple PDFs with only text). Uses the LightRAG REST API directly. Fast, no Python needed.
-- **`/raganything-upload`** — for PDFs or documents that contain images, tables, charts, equations, or mixed content. Runs through the full multimodal pipeline (MinerU + vision model). Slower but understands non-text content.
+## When To Use This
 
-## Configuration
+- Use `raganything-upload` for PDFs or documents with tables, charts, images, equations, or mixed layout.
+- Use the existing `LightRAG` flow for querying after ingest.
+- Use a simpler `LightRAG` upload path for plain text files when multimodal parsing is unnecessary.
 
-- **Repository root:** `/home/ph-pom-gpu/n8n-installer-yk`
-- **Container script:** `/app/process_document.py`
-- **Storage:** shared Docker volume `lightrag_data:/app/data/rag_storage`
-- **Input staging:** `/home/ph-pom-gpu/n8n-installer-yk/raganything/input`
-- **Parser output:** `/home/ph-pom-gpu/n8n-installer-yk/raganything/output`
-- **Models:** GPT-5.4-nano (LLM + vision), text-embedding-3-large (embeddings)
-- **API key:** Uses `OPENAI_API_KEY` from repo `.env`
+## Input Contract
 
-## Usage
+- Required input: one document path.
+- The path is expected to be a local path on the machine where Claude Code CLI is running.
+- In the intended workflow, Claude Code CLI runs on the operator's local machine and reaches the server over SSH.
+- The skill must upload the local file to the server before starting ingest.
 
-### Process a single document
+Examples of valid input:
 
-```bash
-cd /home/ph-pom-gpu/n8n-installer-yk
-cp /path/to/document.pdf ./raganything/input/
-docker compose -p localai \
-  -f docker-compose.yml \
-  -f docker-compose.n8n-workers.yml \
-  -f docker-compose.override.yml \
-  run --rm raganything \
-  python /app/process_document.py \
-  /app/data/input/document.pdf \
-  --working_dir /app/data/rag_storage \
-  --output /app/data/output \
-  --parser mineru \
-  --parse-method auto \
-  --device cpu
+- `C:\Users\you\Downloads\report.pdf`
+- `/Users/you/Downloads/report.pdf`
+
+## Project-Specific Configuration
+
+- Repository root: `/home/ph-pom-gpu/n8n-installer-yk`
+- Remote SSH host alias example: `gpu-ph-ubunt-global-v1`
+- Runner container: `raganything`
+- Ingest script in container: `/app/process_document.py`
+- Shared runtime storage: `lightrag_data:/app/data/rag_storage`
+- Input staging on host: `/home/ph-pom-gpu/n8n-installer-yk/raganything/input`
+- Parse/debug output on host: `/home/ph-pom-gpu/n8n-installer-yk/raganything/output`
+- Query service after ingest: existing `lightrag`
+- Models: `gpt-5.4-nano` for LLM and vision, `text-embedding-3-large` for embeddings
+- API key source: `OPENAI_API_KEY` from repo `.env`
+- SSH auth source: local SSH key loaded into local `ssh-agent`
+
+## Required Skill Steps
+
+When the user asks to ingest a document with this skill, do exactly this:
+
+1. Check that the provided local document path exists on the local machine.
+2. Check that local SSH auth is ready, typically via `ssh-agent` and a loaded key.
+3. Upload the file with `scp` directly into `/home/ph-pom-gpu/n8n-installer-yk/raganything/input/` on the server.
+4. Run `process_document.py` over `ssh` inside the `raganything` container.
+5. Wait for the command to finish and inspect whether it succeeded.
+6. Restart `lightrag` over `ssh`.
+7. Tell the user that ingest is complete and that questions must still go through the existing `LightRAG` flow.
+
+If the ingest script was edited since the last image build, rebuild the `raganything` image before running ingest.
+
+## SSH Prerequisites
+
+- The local machine must already be able to connect to the target server with `ssh`.
+- The SSH key should be loaded into local `ssh-agent`.
+- The skill should not ask the user for a passphrase to embed into commands or files.
+- This skill does not use `LIGHTRAG_API_KEY` for transport or remote execution.
+
+Example local setup on Windows PowerShell:
+
+```powershell
+Start-Service ssh-agent
+ssh-add $HOME\.ssh\id_ed25519
+ssh-add -l
 ```
 
-Supported file types: PDF, DOCX, PPTX, XLSX, images (BMP, TIFF, GIF, WebP), TXT, MD.
+## Standard Upload And Ingest Commands
 
-### Process multiple documents
+Default to CPU mode first unless the environment has already been validated for GPU and the user explicitly wants GPU.
 
-Run the command once per document. Each takes 2-5 minutes depending on page count and content complexity; the first run can be much slower because MinerU may download large models.
+For CPU mode in this fork, prefer `--backend pipeline`. The default MinerU backend may time out on some documents in CPU mode.
 
-### After processing — restart Docker LightRAG
-
-**IMPORTANT:** After processing documents through RAG-Anything, the Docker LightRAG container must be restarted so it reloads the updated knowledge graph from disk:
-
-```bash
-cd /home/ph-pom-gpu/n8n-installer-yk
-docker compose -p localai restart lightrag
+```powershell
+scp "C:\path\to\document.pdf" gpu-ph-ubunt-global-v1:/home/ph-pom-gpu/n8n-installer-yk/raganything/input/
+ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml run --rm raganything python /app/process_document.py /app/data/input/document.pdf --working_dir /app/data/rag_storage --output /app/data/output --parser mineru --parse-method auto --device cpu --backend pipeline"
 ```
 
-This takes a few seconds. The WebUI and API will then show all new entities from the processed documents.
+Replace `document.pdf` with the uploaded filename.
 
-## Example Flow
+## Rebuild Command When The Script Changed
 
-User: "Process this research paper through RAG-Anything" (provides a file path)
+`process_document.py` is baked into the image. Rebuild before ingest if it changed:
 
-1. Copy the file into `./raganything/input/`
-2. Run the `docker compose ... run --rm raganything python /app/process_document.py ...` command
-3. Watch the output; MinerU parses the document first, then GPT-5.4-nano processes each content type
-4. Restart `lightrag`: `docker compose -p localai restart lightrag`
-5. Confirm in the LightRAG WebUI that the document appears under `Documents` and retrieval references it correctly
+```powershell
+ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml build raganything"
+```
 
-Confirm message: "Document processed through RAG-Anything. Entities are written into shared LightRAG storage. `lightrag` restarted, so the WebUI is ready for queries."
+## Restart Step
 
-## What happens under the hood
+After every successful ingest, restart `lightrag`:
 
-1. **MinerU** parses the PDF locally (free, no API calls) — identifies text, tables, equations, images
-2. **Text, tables, equations** → extracted as structured data → sent to GPT-5.4-nano as plain text for entity extraction
-3. **Images/charts** → sent to GPT-5.4-nano's vision endpoint for visual interpretation → entities extracted
-4. **Two knowledge graphs built** (text KG + cross-modal KG) → merged via entity alignment
-5. **Two vector databases built** (text VDB + multimodal VDB) → merged
-6. **Everything written** into the shared LightRAG storage at `/app/data/rag_storage`
+```powershell
+ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml restart lightrag"
+```
 
-## Error Handling
+This restart is mandatory in this fork because `raganything` writes into shared `LightRAG` storage.
 
-- If `OPENAI_API_KEY` is not set, the script will error. Make sure it's set in the environment.
-- If MinerU models haven't been downloaded yet, the first run will trigger a multi-GB download. This is normal — subsequent runs use cached models.
-- If you see "Vector count mismatch" errors, the embedding function has a double-wrap bug. Check that the script uses `openai_embed.func(` not `openai_embed(` in the embedding definition.
-- Large PDFs (10+ pages) may take 10-15 minutes. MinerU runs layout detection on each page.
-- `raganything/input/` and `raganything/output/` are staging/debug directories, not the source of truth. The durable runtime state lives in shared `LightRAG` storage.
+## What To Tell The User After Success
+
+Use a message with these points:
+
+- the document was ingested through `RAG-Anything`
+- `lightrag` was restarted
+- the query path did not change
+- the user should now open the existing `LightRAG` Web UI or API and query there
+
+Example confirmation:
+
+`Document processed through RAG-Anything, shared LightRAG storage updated, and lightrag restarted. Ask questions through the existing LightRAG UI/API; this skill does not expose a separate endpoint.`
+
+## Operational Notes
+
+- `raganything/input/` is temporary staging, not permanent storage.
+- `raganything/output/` contains temporary parse/debug artifacts.
+- `lightrag_data:/app/data/rag_storage` is the durable runtime source of truth for queries.
+- If a document should stay in the repo as a reusable fixture, keep its canonical copy in `raganything/sample-documents/`, not in `raganything/input/`.
+- The first MinerU run can be slow because models and parser assets may download.
+- The orphan-container warning from `docker compose run` is unrelated to the ingest flow.
+- A successful CPU validation exists for `q1_2024_operational_report.pdf` via local Windows `ssh-agent` plus remote `scp` and `ssh`, using `--backend pipeline`.
+
+## GPU Variant
+
+After CPU validation, the same flow can be run with GPU by changing only:
+
+```bash
+--device cuda
+```
+
+The workflow still remains:
+
+1. ingest through `raganything`
+2. wait for completion
+3. restart `lightrag`
+4. query through existing `LightRAG`

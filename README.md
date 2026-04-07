@@ -80,6 +80,8 @@ The installer also makes the following powerful open-source tools **available fo
 
 ✅ [**LightRAG**](https://github.com/HKUDS/LightRAG) - A simple and fast graph-based Retrieval-Augmented Generation system with automatic knowledge graph extraction, dual-level retrieval mechanisms, and incremental updates. Supports multiple storage backends (PostgreSQL, Neo4j, JSON) and embedding models.
 
+Fork-specific multimodal ingest notes for LightRAG via the internal `RAG-Anything` runner: [README_RAGAnything.md](README_RAGAnything.md)
+
 ✅ [**LibreTranslate**](https://docs.libretranslate.com/) - Self-hosted translation API (50+ languages).
 
 ✅ [**Neo4j**](https://neo4j.com/) - A graph database management system that allows you to model, store, and query data as a network of nodes and relationships.
@@ -203,6 +205,8 @@ After successful installation, your services are up and running! Here's how to g
     - **Supabase (Dashboard):** `supabase.yourdomain.com`
     - **WAHA:** `waha.yourdomain.com` (WhatsApp HTTP API; engines: WEBJS, NOWEB, GOWS)
     - **Weaviate:** `weaviate.yourdomain.com`
+
+    For the fork-specific multimodal document ingest flow into `LightRAG`, see [README_RAGAnything.md](README_RAGAnything.md). `RAG-Anything` is internal-only and does not add a new public URL.
 
 ### Optional Internal Utility: Python Runner
 
