@@ -14,6 +14,7 @@ import logging
 import logging.config
 import os
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from lightrag import LightRAG
@@ -45,6 +46,41 @@ def env_int(name: str, default: int) -> int:
     if value is None:
         return default
     return int(value)
+
+
+def preflight_parser_runtime(device: str | None) -> None:
+    """Fail fast if CUDA was requested but the container is not GPU-ready."""
+    if not device:
+        return
+
+    normalized_device = device.strip().lower()
+    if not normalized_device.startswith("cuda"):
+        logger.info("Parser device requested: %s", device)
+        return
+
+    try:
+        import torch
+    except ImportError as exc:
+        raise RuntimeError(
+            "CUDA device was requested, but PyTorch is not installed in the container."
+        ) from exc
+
+    logger.info("Parser device requested: %s", device)
+    logger.info("Torch version: %s", torch.__version__)
+    logger.info("CUDA available to torch: %s", torch.cuda.is_available())
+    logger.info("Visible CUDA device count: %s", torch.cuda.device_count())
+
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "CUDA device was requested, but torch.cuda.is_available() is false. "
+            "Rebuild the raganything image with CUDA wheels and run the service with NVIDIA GPU access."
+        )
+
+    visible_devices = [
+        f"{index}:{torch.cuda.get_device_name(index)}"
+        for index in range(torch.cuda.device_count())
+    ]
+    logger.info("Visible CUDA devices: %s", ", ".join(visible_devices))
 
 
 def configure_logging() -> None:
@@ -109,7 +145,7 @@ def configure_logging() -> None:
 def build_llm_model_func(api_key: str, base_url: str, model_name: str):
     def llm_model_func(
         prompt, system_prompt=None, history_messages=None, **kwargs
-    ):
+    ) -> Any:
         return openai_complete_if_cache(
             model_name,
             prompt,
@@ -131,7 +167,7 @@ def build_vision_model_func(api_key: str, base_url: str, model_name: str, llm_mo
         image_data=None,
         messages=None,
         **kwargs,
-    ):
+    ) -> Any:
         if messages:
             return openai_complete_if_cache(
                 model_name,
@@ -285,6 +321,8 @@ async def process_with_rag(
             embedding_func=embedding_func,
             llm_model_name=llm_model,
         )
+
+        preflight_parser_runtime(device)
 
         rag_anything = RAGAnything(
             lightrag=lightrag,

@@ -30,14 +30,15 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN python -m pip install --upgrade pip setuptools wheel && \
-    python -m pip install --index-url https://download.pytorch.org/whl/cpu \
-        "torch==2.11.0+cpu" \
-        "torchvision==0.26.0+cpu" && \
-    python -m pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+    python -m pip install --index-url https://download.pytorch.org/whl/cu128 \
+        "torch==2.11.0+cu128" \
+        "torchvision==0.26.0+cu128" && \
+    python -m pip install \
         "lightrag-hku[api]" \
         "raganything"
 
 COPY process_document.py /app/process_document.py
+COPY cleanup_runtime_files.py /app/cleanup_runtime_files.py
 
 RUN mkdir -p \
     /app/cache/huggingface \

@@ -276,18 +276,18 @@
 - [x] Проверить compose config:
   - [x] `docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml config -q`
 - [x] Собрать image `raganything`.
-- [ ] Проверить imports внутри контейнера.
+- [x] Проверить imports внутри контейнера.
 - [x] Подготовить тестовый multimodal документ.
 - [x] Запустить ingestion через `raganything` с MinerU в CPU-режиме.
 - [x] Убедиться, что script завершился без storage/init ошибок в CPU-режиме.
-- [ ] Переключить MinerU на GPU-режим после успешного CPU-теста.
-- [ ] Повторно запустить ingestion через `raganything` с MinerU в GPU-режиме.
-- [ ] Убедиться, что GPU-режим работает без storage/init ошибок.
+- [x] Переключить MinerU на GPU-режим после успешного CPU-теста.
+- [x] Повторно запустить ingestion через `raganything` с MinerU в GPU-режиме.
+- [x] Убедиться, что GPU-режим работает без storage/init ошибок.
 - [x] Выполнить restart `lightrag`.
 - [x] Проверить через текущий `LightRAG`, что новые данные доступны.
-- [ ] Сделать regression check:
-  - [ ] `make update-preview`
-  - [ ] `make doctor` если окружение позволяет
+- [x] Сделать regression check:
+  - [x] `make update-preview`
+  - [x] `make doctor` если окружение позволяет
 
 ### Done When
 - После ingest и restart данные реально видны в текущем `LightRAG` UI/API.
@@ -296,26 +296,93 @@
 - Remote operator workflow from a local Windows machine was validated successfully via local `ssh-agent`, `scp` into `raganything/input/`, remote `docker compose ... run --rm raganything ...`, and remote restart of `lightrag`.
 - File validated in this phase:
   - `/home/ph-pom-gpu/n8n-installer-yk/raganything/input/q1_2024_operational_report.pdf`
+- GPU enablement added for `raganything` in this phase:
+  - CUDA-enabled `torch==2.11.0+cu128` and `torchvision==0.26.0+cu128` in [raganything/Dockerfile](/home/ph-pom-gpu/n8n-installer-yk/raganything/Dockerfile)
+  - NVIDIA runtime/device reservations plus persistent `/app/cache` volume in [docker-compose.override.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.override.yml)
+  - explicit CUDA preflight in [raganything/process_document.py](/home/ph-pom-gpu/n8n-installer-yk/raganything/process_document.py)
+- Import/runtime smoke results inside the rebuilt container:
+  - `torch 2.11.0+cu128`
+  - `torch.cuda.is_available() == True`
+  - `torch.cuda.device_count() == 2`
+  - `mineru --version == 3.0.8`
+  - `RAGAnything().check_parser_installation() == True`
 - CPU result with default MinerU backend:
   - failed due to MinerU task timeout while polling internal `mineru-api`
 - CPU result with explicit MinerU backend `pipeline`:
   - success
   - document appeared in `LightRAG` Documents after restart
   - retrieval returned grounded answers from the new document
+- GPU result with explicit MinerU backend `pipeline`:
+  - success
+  - command used: `--device cuda --backend pipeline`
+  - MinerU completed without storage/init errors and wrote parse artifacts under `/home/ph-pom-gpu/n8n-installer-yk/raganything/output/q1_2024_operational_report_a824d9a9/...`
+  - after restart, `LightRAG` `/documents` showed a new processed record for `q1_2024_operational_report.pdf`
+  - `LightRAG` `/query` returned a grounded answer about the quarterly revenue overview from the ingested document
 - Retrieval caveat observed:
   - one question about Q3 2024 revenue was not answered directly even though the document was indexed and other questions against the same document worked
-- Next Phase 7 focus:
-  - GPU validation
-  - decide whether CPU docs/skill should recommend `--backend pipeline` as default or fallback
-  - investigate retrieval quality separately from ingest success
+- Regression check:
+  - `make update-preview`: completed successfully; reported 10 available image updates
+  - `make doctor`: completed successfully with 0 errors and 1 warning (`supabase-auth` restarted 5 times)
+- Phase 7 status:
+  - validation goals are complete
+  - remaining follow-up, if desired, is retrieval-quality tuning rather than ingest/runtime stability
 
 ## Acceptance Criteria
-- [ ] `RAG-Anything` живёт как override-only internal runner.
-- [ ] Новый публичный endpoint не появляется.
-- [ ] Multimodal ingest идёт через `raganything`.
-- [ ] Query path остаётся через `LightRAG`.
-- [ ] Restart `lightrag` зафиксирован как обязательная часть workflow.
-- [ ] Базовый [docker-compose.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.yml) остаётся нетронутым, если не всплывёт жёсткая техническая причина.
+- [x] `RAG-Anything` живёт как override-only internal runner.
+- [x] Новый публичный endpoint не появляется.
+- [x] Multimodal ingest идёт через `raganything`.
+- [x] Query path остаётся через `LightRAG`.
+- [x] Restart `lightrag` зафиксирован как обязательная часть workflow.
+- [x] Базовый [docker-compose.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.yml) остаётся нетронутым, если не всплывёт жёсткая техническая причина.
+
+## Phase 8: Deletion And Cleanup Validation
+**Goal:** зафиксировать, что удаление документов через `LightRAG` корректно очищает shared knowledge store для документов, ingested через `raganything`, и не создаёт ложных ожиданий насчёт `raganything/input` и `raganything/output`.
+
+### Tasks
+- [x] Выбрать один или несколько тестовых документов, ingested через `raganything`, и зафиксировать их `doc_id`.
+- [x] Во время этой фазы разработать и зафиксировать fork-specific deletion/cleanup mechanism, если он потребуется для согласованного удаления `raganything` runtime artifacts после document deletion в `LightRAG`.
+- [x] Выполнить удаление через текущий `LightRAG` Web UI или API c опциями:
+  - [x] `also delete uploaded files`
+  - [x] `also delete extracted llm cache`
+- [x] Отдельно прогнать пользовательский тест через удаление файлов в `LightRAG` Web UI.
+- [x] Проверить, срабатывает ли механизм, разработанный в рамках этой фазы, при реальном удалении через Web UI, а не только в теории или через API.
+- [x] Проверить, что после удаления из `LightRAG` исчезли:
+  - [x] doc status
+  - [x] chunks
+  - [x] vector entries
+  - [x] graph data, относящиеся к этим `doc_id`
+- [x] Проверить, что `LightRAG` query path больше не опирается на удалённый документ.
+- [x] Проверить и зафиксировать фактическое поведение для файловой системы:
+  - [x] `raganything/input` не очищается автоматически этим workflow
+  - [x] `raganything/output` не очищается автоматически этим workflow
+  - [x] parse/debug artifacts MinerU остаются на диске до отдельной housekeeping-очистки
+  - [x] `also delete uploaded files` относится к native `LightRAG` input dir, а не к `raganything/input`
+- [x] Если тест подтверждает текущие assumptions, описать рекомендуемый post-delete housekeeping workflow для fork-specific `raganything` директорий.
+- [x] В конце этой фазы обновить [README_RAGAnything.md](/home/ph-pom-gpu/n8n-installer-yk/README_RAGAnything.md) по фактическому результату теста удаления.
+
+### Done When
+- Понятно, что именно удаляется из shared `LightRAG` storage при document deletion после `raganything` ingest.
+- Понятно, что именно не удаляется автоматически на host filesystem.
+- Понятно, работает ли разработанный в этой фазе deletion/cleanup mechanism в пользовательском сценарии через Web UI.
+- В [README_RAGAnything.md](/home/ph-pom-gpu/n8n-installer-yk/README_RAGAnything.md) нет двусмысленности между удалением документа из `LightRAG` и очисткой `raganything` runtime artifacts.
+
+### Notes
+- Эта фаза нужна отдельно, чтобы не смешивать ingest validation и deletion semantics в одном проходе.
+- Предполагаемый user validation path этой фазы: ты удаляешь документ через Web UI, а мы смотрим, отрабатывает ли механизм, подготовленный в рамках этой фазы.
+- Обновление [README_RAGAnything.md](/home/ph-pom-gpu/n8n-installer-yk/README_RAGAnything.md) считается обязательным deliverable этой фазы, а не optional follow-up.
+
+### Phase 8 Result
+- Web UI deletion был подтверждён для `raganything`-ingested документов.
+- Зафиксированные `doc_id`, участвовавшие в validation:
+  - `doc-02d2ad70d7f1179d44658cd9e3ad30d0`
+  - `doc-6eb4f5bf50ef8a2acc7bdce93e8e49d6`
+- `LightRAG` удалил document status, chunks, vector state, graph state и связанные LLM cache entries для выбранных `doc_id`, когда в UI была включена опция очистки cache.
+- `also delete uploaded files` не очистил `raganything/input`, потому что этот флаг относится к native `LightRAG` input dir `/app/data/inputs`.
+- Во время validation выяснилось, что Web UI может отправлять batch delete по нескольким выбранным документам в одном запросе; это надо учитывать оператору перед подтверждением удаления.
+- Финальная fork-specific cleanup policy после теста была упрощена:
+  - не использовать постоянный doc-aware watcher
+  - использовать low-frequency housekeeping job в `raganything`, который раз в 24 часа очищает `raganything/input` и `raganything/output`
+  - для немедленной очистки использовать manual one-off cleanup command
 
 ## Sub-Agent Recommendation
 - Не использовать по умолчанию.

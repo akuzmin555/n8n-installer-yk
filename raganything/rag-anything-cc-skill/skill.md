@@ -1,11 +1,11 @@
 ---
 name: raganything-upload
-description: Process a multimodal document (PDF with images, tables, charts, equations) through the repo's RAG-Anything runner into shared LightRAG storage. Use this skill when the user wants to ingest a PDF or mixed-content document and then query it through the existing LightRAG flow.
+description: Process a multimodal document (PDF with images, tables, charts, equations) through the repo's GPU-validated RAG-Anything runner into shared LightRAG storage. Use this skill when the user wants to ingest a PDF or mixed-content document and then query it through the existing LightRAG flow.
 ---
 
 # RAG-Anything Upload
 
-Use this skill for multimodal ingest in this fork from a local machine that connects to the server over SSH. It uploads the local file into the server's `raganything/input/`, runs `process_document.py` inside the internal `raganything` container, waits for completion, restarts `lightrag`, and tells the user to keep querying through the existing `LightRAG` UI or API.
+Use this skill for multimodal ingest in this fork from a local machine that connects to the server over SSH. It uploads the local file into the server's `raganything/input/`, runs `process_document.py` inside the internal `raganything` container in GPU mode by default, waits for completion, restarts `lightrag`, and tells the user to keep querying through the existing `LightRAG` UI or API.
 
 This skill does not create a new question-answering endpoint. `RAG-Anything` here is ingest-only.
 
@@ -40,6 +40,8 @@ Examples of valid input:
 - Models: `gpt-5.4-nano` for LLM and vision, `text-embedding-3-large` for embeddings
 - API key source: `OPENAI_API_KEY` from repo `.env`
 - SSH auth source: local SSH key loaded into local `ssh-agent`
+- Preferred ingest mode: `--device cuda --backend pipeline`
+- CPU mode: fallback only when GPU is unavailable or troubleshooting is needed
 
 ## Required Skill Steps
 
@@ -47,13 +49,14 @@ When the user asks to ingest a document with this skill, do exactly this:
 
 1. Check that the provided local document path exists on the local machine.
 2. Check that local SSH auth is ready, typically via `ssh-agent` and a loaded key.
-3. Upload the file with `scp` directly into `/home/ph-pom-gpu/n8n-installer-yk/raganything/input/` on the server.
-4. Run `process_document.py` over `ssh` inside the `raganything` container.
-5. Wait for the command to finish and inspect whether it succeeded.
-6. Restart `lightrag` over `ssh`.
-7. Tell the user that ingest is complete and that questions must still go through the existing `LightRAG` flow.
+3. Rebuild the `raganything` image only if `raganything/Dockerfile` or `raganything/process_document.py` changed since the last successful build.
+4. Upload the file with `scp` directly into `/home/ph-pom-gpu/n8n-installer-yk/raganything/input/` on the server.
+5. Run `process_document.py` over `ssh` inside the `raganything` container in GPU mode by default.
+6. Wait for the command to finish and inspect whether it succeeded.
+7. Restart `lightrag` over `ssh`.
+8. Tell the user that ingest is complete and that questions must still go through the existing `LightRAG` flow.
 
-If the ingest script was edited since the last image build, rebuild the `raganything` image before running ingest.
+Do not rebuild `raganything` before every ingest. Rebuild only after image-input changes.
 
 ## SSH Prerequisites
 
@@ -72,20 +75,20 @@ ssh-add -l
 
 ## Standard Upload And Ingest Commands
 
-Default to CPU mode first unless the environment has already been validated for GPU and the user explicitly wants GPU.
+Default to GPU mode in this fork. CPU is a fallback path only.
 
-For CPU mode in this fork, prefer `--backend pipeline`. The default MinerU backend may time out on some documents in CPU mode.
+Validated default command:
 
 ```powershell
 scp "C:\path\to\document.pdf" gpu-ph-ubunt-global-v1:/home/ph-pom-gpu/n8n-installer-yk/raganything/input/
-ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml run --rm raganything python /app/process_document.py /app/data/input/document.pdf --working_dir /app/data/rag_storage --output /app/data/output --parser mineru --parse-method auto --device cpu --backend pipeline"
+ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml run --rm raganything python /app/process_document.py /app/data/input/document.pdf --working_dir /app/data/rag_storage --output /app/data/output --parser mineru --parse-method auto --device cuda --backend pipeline"
 ```
 
 Replace `document.pdf` with the uploaded filename.
 
 ## Rebuild Command When The Script Changed
 
-`process_document.py` is baked into the image. Rebuild before ingest if it changed:
+`process_document.py` is baked into the image. Rebuild before ingest only if the Dockerfile or an image-copied file changed:
 
 ```powershell
 ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml build raganything"
@@ -122,15 +125,27 @@ Example confirmation:
 - If a document should stay in the repo as a reusable fixture, keep its canonical copy in `raganything/sample-documents/`, not in `raganything/input/`.
 - The first MinerU run can be slow because models and parser assets may download.
 - The orphan-container warning from `docker compose run` is unrelated to the ingest flow.
-- A successful CPU validation exists for `q1_2024_operational_report.pdf` via local Windows `ssh-agent` plus remote `scp` and `ssh`, using `--backend pipeline`.
+- GPU ingest is the preferred operator path in this fork.
+- `raganything` may also run as a low-frequency housekeeping service that clears `raganything/input/` and `raganything/output` once every 24 hours; this is separate from document deletion in `LightRAG`.
+- A successful CPU validation exists for fallback troubleshooting via local Windows `ssh-agent` plus remote `scp` and `ssh`, using `--backend pipeline`.
 
-## GPU Variant
+## CPU Fallback
 
-After CPU validation, the same flow can be run with GPU by changing only:
+If GPU is unavailable or you are debugging parser issues, use CPU with the validated `pipeline` backend:
 
 ```bash
---device cuda
+scp "C:\path\to\document.pdf" gpu-ph-ubunt-global-v1:/home/ph-pom-gpu/n8n-installer-yk/raganything/input/
+ssh gpu-ph-ubunt-global-v1 "cd /home/ph-pom-gpu/n8n-installer-yk && docker compose -p localai -f docker-compose.yml -f docker-compose.n8n-workers.yml -f docker-compose.override.yml run --rm raganything python /app/process_document.py /app/data/input/document.pdf --working_dir /app/data/rag_storage --output /app/data/output --parser mineru --parse-method auto --device cpu --backend pipeline"
 ```
+
+GPU validation in this fork succeeded on April 7, 2026 with:
+
+- CUDA-enabled `raganything` image
+- `torch.cuda.is_available() == True`
+- `mineru --version == 3.0.8`
+- successful ingest plus mandatory `lightrag` restart
+- grounded answer returned through the existing `LightRAG` `/query` path
+- later same-day GPU retest with `food-outlook-june-2024-ready-to-test.pdf` also succeeded through the same remote SSH workflow
 
 The workflow still remains:
 
