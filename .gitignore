@@ -12,6 +12,11 @@ volumes/
 docker-compose.n8n-workers.yml
 welcome/data.json
 welcome/changelog.json
+raganything/input/*
+!raganything/input/.gitkeep
+raganything/output/*
+!raganything/output/.gitkeep
+screenshots/
 
 # Custom TLS certificates
 certs/*
