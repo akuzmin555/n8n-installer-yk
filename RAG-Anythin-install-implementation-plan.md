@@ -41,14 +41,27 @@
 **Goal:** зафиксировать целевую схему без новых решений посреди реализации.
 
 ### Tasks
-- [ ] Подтвердить, что `RAG-Anything` будет ingestion-only runner, а не внешним сервисом.
-- [ ] Подтвердить, что внешний query path остаётся через `LightRAG`.
-- [ ] Подтвердить, что новый контейнер описывается в [docker-compose.override.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.override.yml), а не в [docker-compose.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.yml).
-- [ ] Подтвердить shared storage contract: `lightrag_data -> /app/data/rag_storage`.
-- [ ] Подтвердить обязательный post-ingest restart `lightrag`.
+- [x] Подтвердить, что `RAG-Anything` будет ingestion-only runner, а не внешним сервисом.
+- [x] Подтвердить, что внешний query path остаётся через `LightRAG`.
+- [x] Подтвердить, что новый контейнер описывается в [docker-compose.override.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.override.yml), а не в [docker-compose.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.yml).
+- [x] Подтвердить shared storage contract: `lightrag_data -> /app/data/rag_storage`.
+- [x] Подтвердить обязательный post-ingest restart `lightrag`.
 
 ### Done When
 - Есть однозначная схема: `raganything upload -> restart lightrag -> query via lightrag`.
+
+### Locked Decisions
+- `RAG-Anything` в этом форке фиксируется как internal ingestion runner без собственного query endpoint, Caddy route, hostname и опубликованных портов.
+- Пользовательский query path не меняется: после ingest все запросы продолжают идти через существующий `LightRAG`.
+- Новый контейнер для multimodal ingest добавляется только в [docker-compose.override.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.override.yml) как fork-specific override, базовый [docker-compose.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.yml) для этого не меняется.
+- Shared storage contract зафиксирован так:
+  - `lightrag_data:/app/data/rag_storage` остаётся единственным рабочим storage для `LightRAG` и `RAG-Anything`.
+  - `docker-compose.yml` уже использует `WORKING_DIR=/app/data/rag_storage` для `lightrag`, поэтому `raganything` должен писать в тот же каталог, а не создавать отдельный storage.
+- Post-ingest restart `lightrag` считается обязательным шагом workflow этого форка. Целевая последовательность:
+  - `raganything upload`
+  - `restart lightrag`
+  - `query via lightrag`
+- Это fork-specific exception к общему guide из [README_adding_new_service.md](/home/ph-pom-gpu/n8n-installer-yk/README_adding_new_service.md): `raganything` не рассматривается как новый публичный optional service.
 
 ### Reset Advice
 - Reset не нужен.
@@ -57,13 +70,13 @@
 **Goal:** описать `raganything` как fork-specific internal runner.
 
 ### Tasks
-- [ ] Добавить сервис `raganything` в [docker-compose.override.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.override.yml).
-- [ ] Задать `profiles: ["raganything"]`.
-- [ ] Подключить shared volume `lightrag_data:/app/data/rag_storage`.
-- [ ] Добавить bind mounts для `raganything/input` и `raganything/output`.
-- [ ] Пробросить `OPENAI_API_KEY`.
-- [ ] Добавить нужные `extra_hosts`/proxy settings по аналогии с текущим `lightrag` override.
-- [ ] Не добавлять `ports`, hostname и Caddy route.
+- [x] Добавить сервис `raganything` в [docker-compose.override.yml](/home/ph-pom-gpu/n8n-installer-yk/docker-compose.override.yml).
+- [x] Задать `profiles: ["raganything"]`.
+- [x] Подключить shared volume `lightrag_data:/app/data/rag_storage`.
+- [x] Добавить bind mounts для `raganything/input` и `raganything/output`.
+- [x] Пробросить `OPENAI_API_KEY`.
+- [x] Добавить нужные `extra_hosts`/proxy settings по аналогии с текущим `lightrag` override.
+- [x] Не добавлять `ports`, hostname и Caddy route.
 
 ### Done When
 - `docker compose ... config -q` принимает новый сервис.
@@ -76,12 +89,12 @@
 **Goal:** собрать отдельное окружение для multimodal ingestion.
 
 ### Tasks
-- [ ] Создать папку `raganything/`.
-- [ ] Создать `raganything/Dockerfile`.
-- [ ] Установить `raganything[all]`.
-- [ ] Установить системные зависимости, включая `libreoffice`.
-- [ ] Проверить, что image не поднимает никакой web server.
-- [ ] Зафиксировать места для parser/model caches, если это нужно для стабильности.
+- [x] Создать папку `raganything/`.
+- [x] Создать `raganything/Dockerfile`.
+- [x] Установить `raganything[all]`.
+- [x] Установить системные зависимости, включая `libreoffice`.
+- [x] Проверить, что image не поднимает никакой web server.
+- [x] Зафиксировать места для parser/model caches, если это нужно для стабильности.
 
 ### Done When
 - Образ собирается.
