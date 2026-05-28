@@ -10,6 +10,7 @@ supabase/
 dify/
 volumes/
 docker-compose.n8n-workers.yml
+docker-compose.override.yml
 welcome/data.json
 welcome/changelog.json
 raganything/input/*

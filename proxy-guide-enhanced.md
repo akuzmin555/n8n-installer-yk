@@ -282,10 +282,10 @@ curl -i https://huggingface.co/api/models
 
 ### Шаг 8: Если надо добавить хосты в proxy (обновление Proxy конфига)
 ```bash
-Инструкции для обновления прокси-сервера (91.218.140.191):
+Инструкции для обновления прокси-сервера (YOUR_PROXY_IP):
 
   # 1. Подключитесь к прокси-серверу
-  ssh root@91.218.140.191
+  ssh root@YOUR_PROXY_IP
 
   # 2. Создайте backup старого конфига
   cp /root/llm-proxy/nginx.conf /root/llm-proxy/nginx.conf.backup
@@ -293,7 +293,7 @@ curl -i https://huggingface.co/api/models
   # 3. Обновите конфиг (вставьте содержимое из nginx-proxy-updated.conf)
   nano /root/llm-proxy/nginx.conf
   # Или скопируйте файл с основного сервера:
-  # scp /home/ph-pom-gpu/n8n-installer-yk/nginx-proxy-updated.conf root@91.218.140.191:/root/llm-proxy/nginx.conf
+  # scp /home/ph-pom-gpu/n8n-installer-yk/nginx-proxy-updated.conf root@YOUR_PROXY_IP:/root/llm-proxy/nginx.conf
 
   # 4. Перезапустите nginx контейнер
   sudo docker restart llm-proxy
@@ -418,8 +418,8 @@ OVERRIDE_EOF
 **Замените `YOUR_PROXY_IP`** на реальный IP адрес вашего прокси-сервера:
 
 ```bash
-# Пример: замена на IP 178.208.89.210
-sed -i 's/YOUR_PROXY_IP/178.208.89.210/g' docker-compose.override.yml
+# Пример: замените PLACEHOLDER_PROXY_IP на реальный IP локально
+sed -i 's/YOUR_PROXY_IP/PLACEHOLDER_PROXY_IP/g' docker-compose.override.yml
 ```
 
 ### Шаг 3: Проверка конфигурации
@@ -565,7 +565,7 @@ services:
 
 Затем в `.env` файле:
 ```bash
-PROXY_SERVER_IP=178.208.89.210
+PROXY_SERVER_IP=YOUR_PROXY_IP
 ```
 
 **Примечание**: `.env` файл уже в `.gitignore` согласно архитектуре n8n-installer, поэтому IP останется локальным.
@@ -631,10 +631,10 @@ EOF'
 sudo bash -c 'cat >> /etc/hosts << EOF
 
 # Прокси для AI API (добавлено для обхода гео-блокировок)
-178.208.89.210 api.anthropic.com
-178.208.89.210 api.openai.com
-178.208.89.210 huggingface.co
-178.208.89.210 api-inference.huggingface.co
+YOUR_PROXY_IP api.anthropic.com
+YOUR_PROXY_IP api.openai.com
+YOUR_PROXY_IP huggingface.co
+YOUR_PROXY_IP api-inference.huggingface.co
 EOF'
 ```
 
@@ -694,7 +694,7 @@ claude
 
 ```bash
 # Использование автоматического скрипта
-sudo bash scripts/configure_proxy_host.sh 178.208.89.210
+sudo bash scripts/configure_proxy_host.sh YOUR_PROXY_IP
 
 # Скрипт автоматически:
 # 1. Создаст backup /etc/hosts
@@ -884,13 +884,13 @@ notepad C:\Windows\System32\drivers\etc\hosts
 
 ```
 # Прокси для AI API (для WSL и Windows)
-178.208.89.210 api.anthropic.com
-178.208.89.210 api.openai.com
-178.208.89.210 huggingface.co
-178.208.89.210 api-inference.huggingface.co
+YOUR_PROXY_IP api.anthropic.com
+YOUR_PROXY_IP api.openai.com
+YOUR_PROXY_IP huggingface.co
+YOUR_PROXY_IP api-inference.huggingface.co
 ```
 
-Замените `178.208.89.210` на IP адрес вашего прокси-сервера.
+Замените `YOUR_PROXY_IP` на IP адрес вашего прокси-сервера.
 
 **Шаг 3: Сохраните файл**
 
@@ -907,10 +907,10 @@ getent hosts api.openai.com
 # Должен показать ваш прокси IP
 
 # Тест соединения
-ping -c 3 178.208.89.210
+ping -c 3 YOUR_PROXY_IP
 
 # Тест порта
-nc -zv 178.208.89.210 443
+nc -zv YOUR_PROXY_IP 443
 ```
 
 **Преимущества этого метода**:
@@ -924,10 +924,10 @@ nc -zv 178.208.89.210 443
 1. Откройте `C:\Windows\System32\drivers\etc\hosts` как Администратор
 2. Закомментируйте или удалите строки с прокси:
 ```
-# 178.208.89.210 api.anthropic.com
-# 178.208.89.210 api.openai.com
-# 178.208.89.210 huggingface.co
-# 178.208.89.210 api-inference.huggingface.co
+# YOUR_PROXY_IP api.anthropic.com
+# YOUR_PROXY_IP api.openai.com
+# YOUR_PROXY_IP huggingface.co
+# YOUR_PROXY_IP api-inference.huggingface.co
 ```
 3. Сохраните файл
 
@@ -1070,7 +1070,7 @@ PROXY_IP="${1:-}"
 
 if [ -z "$PROXY_IP" ]; then
     echo "Usage: $0 <proxy-server-ip>"
-    echo "Example: $0 178.208.89.210"
+    echo "Example: $0 YOUR_PROXY_IP"
     exit 1
 fi
 
@@ -1138,7 +1138,7 @@ chmod +x scripts/configure_proxy.sh
 
 ```bash
 # Создание override файла с указанным IP прокси
-bash scripts/configure_proxy.sh 178.208.89.210
+bash scripts/configure_proxy.sh YOUR_PROXY_IP
 
 # Проверка созданной конфигурации
 cat docker-compose.override.yml
@@ -1225,7 +1225,7 @@ PROXY_IP="${1:-}"
 
 if [ -z "$PROXY_IP" ]; then
     echo "Usage: $0 <proxy-server-ip>"
-    echo "Example: $0 178.208.89.210"
+    echo "Example: $0 YOUR_PROXY_IP"
     echo ""
     echo "Этот скрипт модифицирует /etc/hosts для перенаправления AI API через прокси."
     echo "Требуется root доступ (sudo)."
@@ -1328,7 +1328,7 @@ chmod +x scripts/configure_proxy_host.sh
 
 ```bash
 # Настройка прокси для Claude Code и других приложений на хосте
-sudo bash scripts/configure_proxy_host.sh 178.208.89.210
+sudo bash scripts/configure_proxy_host.sh YOUR_PROXY_IP
 
 # Проверка
 getent hosts api.anthropic.com
@@ -1385,7 +1385,7 @@ chmod +x scripts/disable_proxy_host.sh
 
 ```bash
 # === Настройка прокси ===
-bash scripts/configure_proxy.sh 178.208.89.210
+bash scripts/configure_proxy.sh YOUR_PROXY_IP
 
 # === Отключение прокси ===
 bash scripts/disable_proxy.sh
@@ -1425,10 +1425,10 @@ docker exec localai-n8n-1 cat /etc/hosts | grep -E "openai|anthropic|huggingface
 notepad C:\Windows\System32\drivers\etc\hosts
 
 # 3. Добавьте строки:
-# 178.208.89.210 api.anthropic.com
-# 178.208.89.210 api.openai.com
-# 178.208.89.210 huggingface.co
-# 178.208.89.210 api-inference.huggingface.co
+# YOUR_PROXY_IP api.anthropic.com
+# YOUR_PROXY_IP api.openai.com
+# YOUR_PROXY_IP huggingface.co
+# YOUR_PROXY_IP api-inference.huggingface.co
 
 # 4. Сохраните и закройте
 ```
@@ -1440,7 +1440,7 @@ getent hosts api.anthropic.com
 getent hosts api.openai.com
 
 # Подключение к прокси
-nc -zv 178.208.89.210 443
+nc -zv YOUR_PROXY_IP 443
 
 # Тест доступа к API
 curl -I https://api.anthropic.com/v1/messages
@@ -1451,7 +1451,7 @@ curl -I https://api.openai.com/v1/models
 
 ```bash
 # === Настройка прокси ===
-sudo bash scripts/configure_proxy_host.sh 178.208.89.210
+sudo bash scripts/configure_proxy_host.sh YOUR_PROXY_IP
 
 # === Отключение прокси ===
 sudo bash scripts/disable_proxy_host.sh
@@ -1483,12 +1483,12 @@ ls -lt /etc/hosts.backup.* | head -5
 # Шаг 1: Настроить прокси для Windows/WSL хост-системы
 # В PowerShell как Администратор:
 notepad C:\Windows\System32\drivers\etc\hosts
-# Добавьте: 178.208.89.210 api.anthropic.com api.openai.com huggingface.co api-inference.huggingface.co
+# Добавьте: YOUR_PROXY_IP api.anthropic.com api.openai.com huggingface.co api-inference.huggingface.co
 ```
 
 ```bash
 # Шаг 2: Настроить прокси для Docker контейнеров (в WSL терминале)
-bash scripts/configure_proxy.sh 178.208.89.210
+bash scripts/configure_proxy.sh YOUR_PROXY_IP
 
 # Шаг 3: Перезапустить Docker сервисы
 docker compose -p localai down && docker compose -p localai up -d
@@ -1502,8 +1502,8 @@ docker exec localai-n8n-1 getent hosts api.anthropic.com  # Docker контей�
 
 ```bash
 # Настроить прокси для обоих
-sudo bash scripts/configure_proxy_host.sh 178.208.89.210  # Для хост-системы
-bash scripts/configure_proxy.sh 178.208.89.210             # Для Docker
+sudo bash scripts/configure_proxy_host.sh YOUR_PROXY_IP  # Для хост-системы
+bash scripts/configure_proxy.sh YOUR_PROXY_IP             # Для Docker
 
 # Перезапустить Docker сервисы
 docker compose -p localai down && docker compose -p localai up -d

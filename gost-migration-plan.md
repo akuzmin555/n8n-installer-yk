@@ -4,7 +4,7 @@
 
 **Текущее решение**: docker-compose.override.yml с `extra_hosts` → ✅ Работает стабильно
 
-**Проблема**: Ваш nginx stream proxy (91.218.140.191:443) **НЕ совместим с Gost** напрямую
+**Проблема**: Ваш nginx stream proxy (YOUR_PROXY_IP:443) **НЕ совместим с Gost** напрямую
 - Gost требует HTTP/SOCKS5 proxy протокол
 - Nginx stream proxy - это transparent TCP tunnel (другой уровень абстракции)
 
@@ -18,13 +18,13 @@
 
 **extra_hosts (текущее)**:
 ```
-Контейнер → DNS запрос api.openai.com → Docker DNS: 91.218.140.191
+Контейнер → DNS запрос api.openai.com → Docker DNS: YOUR_PROXY_IP
 → TLS handshake → Nginx stream proxy → OpenAI API
 ```
 
 **Gost**:
 ```
-Контейнер → HTTP_PROXY env var → Gost контейнер → HTTP Proxy (91.218.140.191:8080)
+Контейнер → HTTP_PROXY env var → Gost контейнер → HTTP Proxy (YOUR_PROXY_IP:8080)
 → Upstream API
 ```
 
@@ -54,7 +54,7 @@ huggingface-cli download model-name
 ```
 → ❌ **НЕ пойдет через Gost** (Gost доступен только внутри Docker сети)
 
-**Решение для хоста**: Использовать `/etc/hosts` записи или экспортировать `HTTP_PROXY=http://91.218.140.191:8080`
+**Решение для хоста**: Использовать `/etc/hosts` записи или экспортировать `HTTP_PROXY=http://YOUR_PROXY_IP:8080`
 
 ---
 
@@ -107,12 +107,12 @@ GOST_NO_PROXY=localhost,postgres,redis,caddy,...
 
 ## План миграции на Gost
 
-### Шаг 1: Настройка прокси-сервера (91.218.140.191)
+### Шаг 1: Настройка прокси-сервера (YOUR_PROXY_IP)
 
 #### 1.1. Backup текущего конфига
 
 ```bash
-ssh root@91.218.140.191
+ssh root@YOUR_PROXY_IP
 cd /root/llm-proxy
 cp nginx.conf nginx.conf.backup.$(date +%Y%m%d)
 ```
@@ -245,7 +245,7 @@ docker logs llm-proxy
 netstat -tlnp | grep -E "443|8080"
 
 # Тест HTTP proxy (с основного сервера)
-curl -v -x http://91.218.140.191:8080 https://api.openai.com/v1/models \
+curl -v -x http://YOUR_PROXY_IP:8080 https://api.openai.com/v1/models \
   -H "Authorization: Bearer YOUR_OPENAI_KEY"
 ```
 
@@ -270,7 +270,7 @@ Enter your external proxy URL for geo-bypass.
 
 Ввести:
 ```
-http://91.218.140.191:8080
+http://YOUR_PROXY_IP:8080
 ```
 
 Это заполнит `GOST_UPSTREAM_PROXY` в `.env`.
@@ -281,7 +281,7 @@ http://91.218.140.191:8080
 sudo grep GOST .env
 
 # Должно быть:
-# GOST_UPSTREAM_PROXY=http://91.218.140.191:8080
+# GOST_UPSTREAM_PROXY=http://YOUR_PROXY_IP:8080
 # GOST_PROXY_URL=http://gost:PASSWORD@gost:8080
 # COMPOSE_PROFILES=...,gost,...
 ```
@@ -386,9 +386,9 @@ docker compose -p localai up -d
 **Для хост-системы**: `/etc/hosts` (или Windows hosts для WSL)
 ```bash
 # /etc/hosts
-91.218.140.191 api.openai.com
-91.218.140.191 api.anthropic.com
-91.218.140.191 huggingface.co
+YOUR_PROXY_IP api.openai.com
+YOUR_PROXY_IP api.anthropic.com
+YOUR_PROXY_IP huggingface.co
 ```
 
 **Для Docker**: Gost с HTTP_PROXY
@@ -414,7 +414,7 @@ services:
 - [ ] Пересоздать llm-proxy контейнер с портами 443+8080
 - [ ] Проверить логи nginx
 - [ ] Открыть порт 8080 в firewall
-- [ ] Протестировать HTTP proxy: `curl -x http://91.218.140.191:8080 https://api.openai.com`
+- [ ] Протестировать HTTP proxy: `curl -x http://YOUR_PROXY_IP:8080 https://api.openai.com`
 - [ ] Указать GOST_UPSTREAM_PROXY во время установки
 - [ ] Проверить .env: GOST_UPSTREAM_PROXY и GOST_PROXY_URL
 - [ ] Отключить docker-compose.override.yml
@@ -430,4 +430,4 @@ services:
 
 **Дата создания**: $(date +%Y-%m-%d)
 **Основано на**: n8n-installer проект, Gost версия latest
-**Прокси-сервер**: 91.218.140.191
+**Прокси-сервер**: YOUR_PROXY_IP
