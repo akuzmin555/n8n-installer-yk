@@ -276,6 +276,24 @@ Use a concrete model identifier such as `ibm-granite/granite-vision-3.3-2b`, or
 download the default UI model `ibm-granite/granite-docling-258M` into the
 expected local artifacts directory.
 
+## Docling UI Practical Notes
+
+docling
+
+Enable OCR = главный рубильник; Force OCR = OCR всё, игнорируя битый текстовый
+слой (для сканов обязательно обе галки).
+
+Image Export Mode: Placeholder (метка, картинки выброшены) / Referenced
+(ссылки на файлы) / Embedded (base64 внутри MD).
+
+Enable picture description / classification пишут аннотации в Docling JSON; в
+Markdown по умолчанию их нет → обязательно отмечать вывод Docling (JSON).
+
+Дефолтная VLM описаний (SmolVLM-256M) слабая; классификатор обучен на деловых
+документах (категории logo/chart/... нерелевантны детским иллюстрациям).
+
+PDF Backend dlparse_v4 — лучший дефолт; pypdfium2 — запасной при сбоях шрифтов.
+
 ## OCR Models and Engines
 
 Docling supports several OCR engines. The model files are engine-specific.
