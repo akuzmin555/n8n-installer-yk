@@ -133,6 +133,149 @@ print("Docling-style EasyOCR ru+en OK")
 PY
 ```
 
+## Current Container State on This Machine
+
+The currently verified running service is:
+
+```text
+container: docling
+image: quay.io/docling-project/docling-serve-cu128:v1.8.0-working
+docling: 2.60.0
+docling-serve: 1.8.0
+docling-core: 2.50.0
+easyocr: 1.7.2
+rapidocr: 3.4.2
+```
+
+Important runtime environment values observed inside the container:
+
+```text
+DOCLING_DEVICE=cuda:0
+DOCLING_SERVE_ARTIFACTS_PATH=/opt/app-root/src/models
+DOCLING_SERVE_ENABLE_REMOTE_SERVICES=true
+DOCLING_SERVE_ENABLE_UI=1
+DOCLING_SERVE_LOAD_MODELS_AT_BOOT=true
+EASYOCR_MODULE_PATH=/opt/app-root/src/.cache/easyocr
+NVIDIA_VISIBLE_DEVICES=all
+```
+
+CUDA is visible from inside the container:
+
+```text
+torch cuda True 2
+NVIDIA GeForce RTX 4090
+```
+
+If `nvidia-smi` shows GPU memory used by the Docling Python process but
+`GPU-Util` remains at `0%`, it does not necessarily mean inference is running.
+In the observed case, the Docling process was idle while the UI still showed a
+processing state. Check the worker log first:
+
+```bash
+sudo docker logs --tail=250 docling
+```
+
+## VLM Pipeline and Model Selection
+
+In this installed `docling-serve` version, the Gradio UI has a `Pipeline type`
+radio button and allows selecting `vlm`, but it does not expose a field for
+choosing the VLM model.
+
+The Gradio UI sends only the general conversion options, such as:
+
+```text
+pipeline
+ocr
+ocr_engine
+ocr_lang
+pdf_backend
+table_mode
+do_picture_classification
+do_picture_description
+```
+
+It does not send:
+
+```text
+vlm_pipeline_model
+vlm_pipeline_model_local
+vlm_pipeline_model_api
+```
+
+Therefore, when `pipeline=vlm` is selected in the Gradio UI, Docling uses the
+default VLM model from the installed Docling Python package. On this version the
+default is:
+
+```text
+ibm-granite/granite-docling-258M
+```
+
+Docling looks for local model artifacts by replacing `/` with `--` under
+`DOCLING_SERVE_ARTIFACTS_PATH`. With the current artifacts path, the expected
+local directory for the default VLM model is:
+
+```text
+/opt/app-root/src/models/ibm-granite--granite-docling-258M
+```
+
+At the time of inspection, this default model was not present locally.
+
+The local VLM-related directories that were present were:
+
+```text
+/opt/app-root/src/models/HuggingFaceTB--SmolVLM-256M-Instruct
+/opt/app-root/src/models/ibm-granite--granite-vision-3.3-2b
+```
+
+These models are present on disk, but the current Gradio UI cannot switch to
+them. To use them, call the Docling Serve API directly or use the Docling SDK and
+pass the model in the request/options.
+
+Example local VLM option for `SmolVLM`:
+
+```json
+{
+  "vlm_pipeline_model_local": {
+    "repo_id": "HuggingFaceTB/SmolVLM-256M-Instruct",
+    "response_format": "plaintext",
+    "inference_framework": "transformers",
+    "transformers_model_type": "automodel-imagetexttotext"
+  }
+}
+```
+
+Example local VLM option for Granite Vision:
+
+```json
+{
+  "vlm_pipeline_model_local": {
+    "repo_id": "ibm-granite/granite-vision-3.3-2b",
+    "response_format": "markdown",
+    "inference_framework": "transformers",
+    "transformers_model_type": "automodel-vision2seq"
+  }
+}
+```
+
+Important: do not pass the artifacts root itself as the model path. This is
+wrong:
+
+```text
+/opt/app-root/src/models
+```
+
+When the artifacts root is treated as a model, the worker can fail with:
+
+```text
+Unrecognized processing class in /opt/app-root/src/models. Can't instantiate a
+processor, a tokenizer, an image processor or a feature extractor for this
+model.
+```
+
+Use a concrete model identifier such as `ibm-granite/granite-vision-3.3-2b`, or
+download the default UI model `ibm-granite/granite-docling-258M` into the
+expected local artifacts directory.
+
 ## OCR Models and Engines
 
 Docling supports several OCR engines. The model files are engine-specific.
