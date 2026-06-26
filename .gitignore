@@ -1,5 +1,6 @@
 .DS_Store
 .env
+.env.ollama
 .env.bak
 .env.test
 neo4j/
@@ -25,4 +26,5 @@ certs/*
 
 # Custom Caddy addons (user configurations)
 caddy-addon/*.conf
+!caddy-addon/ollama.conf
 !caddy-addon/*.example
