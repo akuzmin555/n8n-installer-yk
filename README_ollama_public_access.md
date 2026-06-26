@@ -56,6 +56,7 @@ The hostname and bearer token are stored outside Git in:
 ```
 
 This file is listed in `.gitignore` and must not be committed.
+Use `.env.ollama.example` as the template.
 
 Example structure:
 
